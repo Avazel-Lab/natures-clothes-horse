@@ -707,35 +707,38 @@ def is_risky(sim):
             or sim["stop_at"] - sim["dry_at"] < MARGIN)
 
 
+# Each reason is (code, words). Logic keys off the code; only the screen
+# sees the words, so rewording never changes behaviour.
+
 def wait_reason(hours, now, start, raining_now):
     """Why wait until `start`? Describe the rain in between."""
     wet = [h for h in hours if h["wet"] and now < h["start"] + timedelta(hours=1) and h["start"] < start]
     if not wet:
-        return "Better drying later"
+        return "better_later", "Better drying later"
     until = hhmm(wet[-1]["start"] + timedelta(hours=1))
     if raining_now:
-        return f"Should clear by {until}"
+        return "clearing", f"Should clear by {until}"
     if wet[0]["start"] <= now:
-        return f"Rain likely until {until}"
-    return f"Rain {hhmm(wet[0]['start'])}–{until}, then dry"
+        return "rain_until", f"Rain likely until {until}"
+    return "rain_between", f"Rain {hhmm(wet[0]['start'])}–{until}, then dry"
 
 
 def risky_reason(sim):
     if sim["stop_at"] - sim["dry_at"] < MARGIN:
         if sim["stop_why"] == "rain":
-            return f"Rain due {hhmm(sim['stop_at'])}, cutting it fine"
-        return "Only just dry by sunset"
-    return f"{rnd(sim['max_prob'])}% chance of a shower"
+            return "rain_close", f"Rain due {hhmm(sim['stop_at'])}, cutting it fine"
+        return "sunset_close", "Only just dry by sunset"
+    return "shower_chance", f"{rnd(sim['max_prob'])}% chance of a shower"
 
 
 def not_today_reason(today_sim, now, sunset, raining_now):
     if now >= sunset:
-        return "Too late for today"
+        return "too_late", "Too late for today"
     if today_sim and today_sim["stop_why"] == "rain":
         if raining_now or today_sim["stop_at"] <= now:
-            return "Wet on and off until dark"
-        return f"Rain from {hhmm(today_sim['stop_at'])}"
-    return "Not enough drying time left today"
+            return "wet_until_dark", "Wet on and off until dark"
+        return "rain_from", f"Rain from {hhmm(today_sim['stop_at'])}"
+    return "not_enough_time", "Not enough drying time left today"
 
 
 def washing(hours, now, suns, need, raining_now):
@@ -749,20 +752,20 @@ def washing(hours, now, suns, need, raining_now):
         sim = simulate(hours, out, need, sunset)
         if sim["dry_at"] and not raining_now:
             if is_risky(sim):
-                return verdict("risky", "Risky, but go", risky_reason(sim),
+                return verdict("risky", "Risky, but go", *risky_reason(sim),
                                start=out, sim=sim)
             head = "Put it out now" if now >= sunrise else f"Put it out at {hhmm(sunrise)}"
-            return verdict("go", head, f"Dry in {duration(sim['dry_at'] - out)}",
+            return verdict("go", head, "drying", f"Dry in {duration(sim['dry_at'] - out)}",
                            start=out, sim=sim)
 
         start, later = first_good_start(hours, now, need, sunset)
         if start:
             return verdict("wait", "Raining now" if raining_now else "Wait",
-                           wait_reason(hours, now, start, raining_now),
+                           *wait_reason(hours, now, start, raining_now),
                            start=start, sim=later)
 
         if not raining_now and sim["done"] >= PARTIAL_OK and sim["stop_at"] > now:
-            return verdict("risky", "Partly dry at best",
+            return verdict("risky", "Partly dry at best", "partial",
                            f"About {rnd(sim['done'] * 100)}% dry by {hhmm(sim['stop_at'])}",
                            start=out, sim=sim, partial=True)
 
@@ -772,16 +775,16 @@ def washing(hours, now, suns, need, raining_now):
         start, t_sim = first_good_start(hours, t_rise, need, t_set)
         if start:
             v = verdict("tomorrow", "Not today",
-                        not_today_reason(sim, now, sunset, raining_now),
+                        *not_today_reason(sim, now, sunset, raining_now),
                         start=start, sim=t_sim)
             v["when"] = "tomorrow"
             return v
 
-    return verdict("no", "Dry it indoors", "No drying window today or tomorrow")
+    return verdict("no", "Dry it indoors", "no_window", "No drying window today or tomorrow")
 
 
-def verdict(code, headline, detail, start=None, sim=None, partial=False):
-    v = {"code": code, "icon": VERDICT_ICON[code], "when": "today",
+def verdict(code, headline, reason, detail, start=None, sim=None, partial=False):
+    v = {"code": code, "reason": reason, "icon": VERDICT_ICON[code], "when": "today",
          "headline": headline, "detail": detail,
          "out_at": None, "dry_by": None, "in_by": None, "in_why": None,
          "why": None, "window": None}
@@ -997,9 +1000,9 @@ def run(input):
                 rows[today] = row
     if today not in rows:
         sunset = suns[today][1]
-        if now + MARGIN >= sunset or wash["detail"].startswith(("Not enough", "Too late")):
+        if now + MARGIN >= sunset or wash["reason"] in ("too_late", "not_enough_time"):
             note = "Too late today"
-        elif wash["detail"].startswith("Rain from"):
+        elif wash["reason"] == "rain_from":
             note = "Nothing dries before the rain"
         else:
             note = no_drying_note(hours, now, sunset)

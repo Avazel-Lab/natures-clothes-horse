@@ -159,6 +159,17 @@ class Verdicts(unittest.TestCase):
 
 
 class Explanations(unittest.TestCase):
+    def test_every_verdict_has_a_reason_code(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}
+        late_rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
+        cases = [({}, "drying"), ({"overrides": rain}, "rain_between"),
+                 ({"now": "2026-09-30T16:30"}, "not_enough_time"),
+                 ({"now": "2026-09-30T21:00"}, "too_late"),
+                 ({"now": "2026-09-30T12:00", "overrides": late_rain}, "rain_from"),
+                 ({"prob": 90}, "no_window")]
+        for kw, reason in cases:
+            self.assertEqual(wash(forecast(rate=0.3, **kw))["reason"], reason, kw)
+
     def test_go_says_how_long(self):
         self.assertEqual(wash(forecast(rate=0.3))["detail"], "Dry in about 4½ hours")
 
