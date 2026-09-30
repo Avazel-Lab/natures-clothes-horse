@@ -1,5 +1,6 @@
-# natures-clothes-horse
-A "will it rain?" TRMNL plugin
+# Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
+
+**MMLAAA**: a TRMNL plugin that decides when to hang the washing out.
 
 Tells you whether to hang the washing out, when it'll be dry, and when it has
 to come in, alongside the usual weather: current conditions, feels-like,
@@ -41,16 +42,13 @@ They're first guesses and need calibrating against real washing.
 ## Setup
 
 Uses [trmnlp](https://github.com/usetrmnl/trmnlp) via Docker (no Ruby
-needed). From the project folder:
+needed). Create an account API key on your TRMNL account page. `trmnlp login`
+only accepts legacy `user_` keys, so pass the new `trmnl_` key through the
+environment instead. From the project folder:
 
 ```sh
-# Once: paste your API key from your TRMNL account page when asked
-docker run -it --rm -v "$HOME/.config/trmnlp:/root/.config/trmnlp" \
-  -v "$PWD:/plugin" trmnl/trmnlp login
-
-# Each time you want to upload changes
-docker run -it --rm -v "$HOME/.config/trmnlp:/root/.config/trmnlp" \
-  -v "$PWD:/plugin" trmnl/trmnlp push
+read -rs TRMNL_API_KEY && export TRMNL_API_KEY   # paste key, press Enter
+docker run -it --rm -e TRMNL_API_KEY -v "$PWD:/plugin" trmnl/trmnlp push
 ```
 
 The first push creates the private plugin and writes its `id` into

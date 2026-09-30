@@ -1,5 +1,6 @@
 """
-Nature's Clothes Horse: TRMNL serverless transform.
+Ministry of Meteorology, Laundry & Associated Atmospheric Affairs (MMLAAA):
+TRMNL serverless transform.
 
 Input: the Open-Meteo /v1/forecast response (polled by TRMNL), plus the
 `trmnl` namespace that TRMNL adds (we read the "load" custom field from it).

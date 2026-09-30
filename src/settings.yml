@@ -1,16 +1,18 @@
 ---
 strategy: polling
-name: Nature's Clothes Horse
-description: When to hang the washing out
 no_screen_padding: 'no'
 dark_mode: 'no'
 static_data: ''
 polling_verb: get
-polling_url: "https://api.open-meteo.com/v1/forecast?latitude={{ location | split: ',' | first | strip }}&longitude={{ location | split: ',' | last | strip }}&timezone=auto&forecast_days=2&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,et0_fao_evapotranspiration,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max"
-polling_headers: ''
-polling_body: ''
 framework_version: latest
-refresh_interval: 30
+serverless_language: python
+refresh_interval_floor:
+polling_url: 'https://api.open-meteo.com/v1/forecast?latitude={{ location | split: '','' | first | strip }}&longitude={{ location | split: '','' | last | strip }}&timezone=auto&forecast_days=2&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,et0_fao_evapotranspiration,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max'
+polling_headers:
+polling_body:
+id: 492254
+oauth_enabled: 'false'
+oauth_pkce_enabled: 'no'
 custom_fields:
 - keyname: location
   field_type: lat_lon
@@ -25,3 +27,6 @@ custom_fields:
   - Normal: normal
   - Heavy (towels, jeans): heavy
   default: normal
+name: Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
+description: MMLAAA - when to hang washing out
+refresh_interval: 30
