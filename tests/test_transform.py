@@ -52,8 +52,7 @@ def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
     }
 
 
-def wash(data, load="normal"):
-    data["trmnl"] = {"plugin_settings": {"custom_fields_values": {"load": load}}}
+def wash(data):
     return transform.run(data)["wash"]
 
 
@@ -61,21 +60,28 @@ class Verdicts(unittest.TestCase):
     def test_good_day_says_go(self):
         w = wash(forecast(rate=0.3))
         self.assertEqual(w["code"], "go")
-        self.assertEqual(w["out_at"], "10:00")
+        self.assertEqual(w["out_at"], "Now")
         # normal = 1.3 mm at 0.3 mm/h = 4h20m
         self.assertEqual(w["dry_by"], "14:20")
         self.assertEqual(w["in_by"], "19:00")
         self.assertEqual(w["in_why"], "sunset")
 
-    def test_heavier_loads_take_longer(self):
-        light = wash(forecast(rate=0.3), "light")["dry_by"]
-        heavy = wash(forecast(rate=0.3), "heavy")["dry_by"]
-        self.assertLess(light, heavy)
+    def test_dry_times_for_every_load(self):
+        # 0.9, 1.3 and 1.9 mm at 0.3 mm/h from 10:00.
+        loads = {l["name"]: l["dry_by"] for l in wash(forecast(rate=0.3))["loads"]}
+        self.assertEqual(loads, {"Light": "13:00", "Normal": "14:20", "Heavy": "16:20"})
 
-    def test_load_label_from_trmnl_select_is_normalised(self):
-        data = forecast(rate=0.3)
-        data["trmnl"] = {"plugin_settings": {"custom_fields_values": {"load": "Heavy"}}}
-        self.assertEqual(transform.run(data)["load"], "heavy")
+    def test_heavy_load_that_wont_dry(self):
+        # Rain at 15:00: normal dries at 14:20, heavy never does.
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T15:00": {"prob": 80}}))
+        loads = {l["name"]: l["dry_by"] for l in w["loads"]}
+        self.assertEqual(loads["Normal"], "14:20")
+        self.assertIsNone(loads["Heavy"])
+
+    def test_loads_start_when_the_verdict_says(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}
+        loads = {l["name"]: l["dry_by"] for l in wash(forecast(rate=0.3, overrides=rain))["loads"]}
+        self.assertEqual(loads["Light"], "16:00")  # out 13:00 + 3h
 
     def test_rain_before_dry_means_wait(self):
         rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}
@@ -125,6 +131,16 @@ class Verdicts(unittest.TestCase):
         self.assertEqual(w["code"], "go")
         self.assertEqual(w["out_at"], "07:00")
         self.assertEqual(w["headline"], "Put it out at 07:00")
+
+    def test_warns_about_rain_overnight(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T22:00": {"prob": 70}}))
+        self.assertEqual(w["tonight"], "Rain from 22:00 tonight, don't leave it out")
+        self.assertIsNone(wash(forecast(rate=0.3))["tonight"])
+
+    def test_no_tonight_warning_for_a_tomorrow_window(self):
+        data = forecast(now="2026-09-30T21:00", rate=0.3,
+                        overrides={"2026-10-01T22:00": {"prob": 70}})
+        self.assertIsNone(wash(data)["tonight"])
 
     def test_rain_all_week_says_indoors(self):
         w = wash(forecast(rate=0.3, prob=90))
@@ -217,6 +233,8 @@ class Output(unittest.TestCase):
         win = [b["label"] for b in out["chart"]["bars"] if b["win"]]
         self.assertEqual(win, ["10", "11", "12", "13", "14"])
         self.assertEqual(out["chart"]["now"], "10")
+        past = [b["label"] for b in out["chart"]["bars"] if b["past"]]
+        self.assertEqual(past, ["07", "08", "09"])
 
     def test_api_error_is_passed_through(self):
         out = transform.run({"error": True, "reason": "Latitude must be in range"})

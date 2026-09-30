@@ -7,7 +7,6 @@ watch:
 
 custom_fields:
   location: "{{ env.WASHING_LOCATION }}"
-  load: normal
 
 time_zone: Europe/London
 transform_runtime: enabled

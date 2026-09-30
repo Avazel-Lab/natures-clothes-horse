@@ -34,15 +34,6 @@ custom_fields:
   field_type: lat_lon
   name: Location
   description: Where your washing line is. Search for a town or postcode, or enter "lat,lon".
-- keyname: load
-  field_type: select
-  name: Typical load
-  description: Heavier loads (towels, jeans) need more drying.
-  options:
-  - Light (shirts, underwear): light
-  - Normal: normal
-  - Heavy (towels, jeans): heavy
-  default: normal
 name: Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
 description: MMLAAA - when to hang washing out
 refresh_interval: 30

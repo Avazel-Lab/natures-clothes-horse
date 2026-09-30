@@ -27,7 +27,8 @@ Each hour's drying rate is the FAO-56 reference evapotranspiration (ET0,
 mm/h). This is the standard measure of how fast water evaporates, and it
 combines sunshine, temperature, humidity and wind. A load is dry once the ET0
 it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
-1.9 mm.
+1.9 mm. The verdict is for a normal load; the screen also shows when light
+and heavy loads would be dry if hung out at the same time.
 
 - An hour counts as **wet** if rain chance is ≥ 40% or ≥ 0.2 mm is forecast.
   The washing has to come in before it.
@@ -37,7 +38,8 @@ it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
   covers days where the washing gets at least 60% dry.
 
 The verdict explains itself: how long drying will take, when the rain
-arrives or clears, or why today is a write-off.
+arrives or clears, or why today is a write-off. If rain is due overnight it
+says so, in case the washing would otherwise stay out.
 
 Today's and tomorrow's conditions and rain chance cover **daylight hours
 only**. Open-Meteo's daily summary is the worst weather in the whole 24 hours,
@@ -62,7 +64,7 @@ The first push creates the private plugin and writes its `id` into
 `src/settings.yml`. Commit that, so later pushes update the same plugin
 instead of creating a new one.
 
-Then, in TRMNL, open the plugin's settings. Set **Location** (search for a place or enter `lat,lon`) and **Typical load**.
+Then, in TRMNL, open the plugin's settings and set **Location** (search for a place or enter `lat,lon`).
 
 ## Local preview
 

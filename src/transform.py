@@ -2,10 +2,9 @@
 Ministry of Meteorology, Laundry & Associated Atmospheric Affairs (MMLAAA):
 TRMNL serverless transform.
 
-Input: the Open-Meteo /v1/forecast response (polled by TRMNL), plus the
-`trmnl` namespace that TRMNL adds (we read the "load" custom field from it).
+Input: the Open-Meteo /v1/forecast response (polled by TRMNL).
 Output: a small, template-ready dict: current conditions, today/tomorrow,
-and a washing verdict.
+a washing verdict (for a normal load) and dry-by times for each load size.
 
 The drying model
 ----------------
@@ -13,7 +12,8 @@ Each forecast hour gets a drying rate: the FAO-56 reference
 evapotranspiration (ET0, mm/h). That's the standard "how fast does water
 evaporate from a surface" figure, and it already combines sunshine,
 temperature, humidity and wind. A load of washing is dry once the ET0 it has
-been exposed to adds up to DRY_NEED[load].
+been exposed to adds up to DRY_NEED[load]. The verdict is for a normal load;
+light and heavy loads get their own dry-by times from the same start.
 
 An hour is "wet" (washing must be in) if rain is forecast or likely.
 Drying only counts during daylight: evenings bring dew, not drying.
@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 
 # Cumulative ET0 (mm) a load needs to be dry.
 DRY_NEED = {"light": 0.9, "normal": 1.3, "heavy": 1.9}
-DEFAULT_LOAD = "normal"
+VERDICT_LOAD = "normal"
 
 # An hour is wet if either is true.
 WET_PROB = 40       # % precipitation probability
@@ -416,7 +416,25 @@ def verdict(code, headline, detail, start=None, sim=None, partial=False):
 
 # ---- Timeline ------------------------------------------------------------
 
-def timeline(hours, day, suns, win):
+def load_times(hours, out, sunset):
+    """Dry-by time for each load size, all hung out at `out`."""
+    loads = []
+    for name, need in DRY_NEED.items():
+        sim = simulate(hours, out, need, sunset)
+        loads.append({"name": name.capitalize(),
+                      "dry_by": hhmm(sim["dry_at"]) if sim["dry_at"] else None})
+    return loads
+
+
+def rain_tonight(hours, sunset, next_sunrise):
+    """First wet hour between sunset and the next sunrise, as a warning."""
+    for h in hours:
+        if sunset <= h["start"] < next_sunrise and h["wet"]:
+            return f"Rain from {hhmm(h['start'])} tonight, don't leave it out"
+    return None
+
+
+def timeline(hours, day, suns, win, now):
     """One bar per daylight hour of `day`, for the chart strip."""
     rise, sset = suns[day]
     first = rise.replace(minute=0)
@@ -431,6 +449,7 @@ def timeline(hours, day, suns, win):
             "prob": rnd(h["prob"]),
             "wet": h["wet"],
             "win": in_win,
+            "past": h["start"] + timedelta(hours=1) <= now,
         })
     return bars
 
@@ -441,12 +460,6 @@ def run(input):
     if "hourly" not in input:
         reason = input.get("reason") or "No forecast data"
         return {"error": reason}
-
-    settings = (input.get("trmnl") or {}).get("plugin_settings") or {}
-    fields = settings.get("custom_fields_values") or {}
-    load = str(fields.get("load") or DEFAULT_LOAD).lower()
-    if load not in DRY_NEED:
-        load = DEFAULT_LOAD
 
     cur = input["current"]
     now = parse(cur["time"])
@@ -473,13 +486,25 @@ def run(input):
         })
 
     raining_now = (cur.get("precipitation") or 0) > 0
-    wash = washing(hours, now, suns, DRY_NEED[load], raining_now)
+    wash = washing(hours, now, suns, DRY_NEED[VERDICT_LOAD], raining_now)
+
+    win = wash["window"]
+    wash["loads"] = []
+    wash["tonight"] = None
+    if win:
+        out_day = win["start"].date()
+        sunset = suns[out_day][1]
+        wash["loads"] = load_times(hours, win["start"], sunset)
+        if out_day == now.date() and out_day + timedelta(days=1) in suns:
+            wash["tonight"] = rain_tonight(hours, sunset, suns[out_day + timedelta(days=1)][0])
+        if win["start"] == now:
+            wash["out_at"] = "Now"
 
     # Chart today's daylight; after sunset, chart tomorrow instead.
     chart_day = now.date()
     if now >= suns[chart_day][1] or wash["code"] == "tomorrow":
         chart_day = chart_day + timedelta(days=1)
-    bars = timeline(hours, chart_day, suns, wash["window"])
+    bars = timeline(hours, chart_day, suns, wash["window"], now)
     now_label = now.strftime("%H") if chart_day == now.date() else None
     wash["window"] = None  # datetimes aren't JSON; the bars carry it now
 
@@ -499,7 +524,6 @@ def run(input):
         "today": days[0],
         "tomorrow": days[1] if len(days) > 1 else None,
         "wash": wash,
-        "load": load,
         "chart": {
             "day": "Today" if chart_day == now.date() else "Tomorrow",
             "bars": bars,

@@ -22,12 +22,16 @@
   .nc-sun i { font-size: 14px; margin-right: 2px; }
 
   /* Washing verdict */
-  .nc-wash { flex: 1 1 0; border: 3px solid #000; border-radius: 10px; padding: 10px 20px; gap: 20px; }
+  .nc-wash { flex: 1 1 0; border: 3px solid #000; border-radius: 10px; padding: 10px 20px; gap: 6px; }
   .nc-wash--compact { padding: 8px 12px; gap: 10px; }
   .nc-wash--go { background: #000; }
   .nc-wash--go * { color: #fff !important; }
   .nc-wash-icon { font-size: 80px; line-height: 1; }
   .nc-wash-icon--small { font-size: 44px; }
+  .nc-row--wide { gap: 20px; }
+  .nc-stats { justify-content: space-around; border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; }
+  .nc-wash--go .nc-stats, .nc-wash--go .nc-stats-rule { border-color: #fff; }
+  .nc-stats-rule { align-self: stretch; border-left: 2px solid #000; }
   .nc-stat { text-align: center; min-width: 96px; align-items: center; }
 
   /* Drying timeline. Each bar sets --pct inline, from the data. */
@@ -39,6 +43,9 @@
   .nc-bar--win .nc-bar-fill { background: #000; }
   .nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #000 0 3px, #fff 3px 9px); border: 2px solid #000; min-height: 18px; }
   .nc-bar-prob { position: absolute; left: 0; right: 0; bottom: max(var(--pct), 18px); text-align: center; padding-bottom: 2px; }
+  .nc-bar--past .nc-bar-fill { background: #ddd; }
+  .nc-bar--past.nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #999 0 3px, #fff 3px 9px); border-color: #999; }
+  .nc-bar--past .nc-bar-prob { display: none; }
   .nc-bar--now .nc-bar-hour { background: #000; color: #fff; border-radius: 4px; padding: 0 5px; }
   .nc-key { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin: 0 3px 0 10px; }
   .nc-key--win { background: #000; }
@@ -50,7 +57,7 @@
 {% template chart %}
 <div class="nc-chart{% if small %} nc-chart--small{% endif %}">
   {% for b in chart.bars %}
-    <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
+    <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.past %} nc-bar--past{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
       <div class="nc-bar-track">
         {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob label label--small">{{ b.prob }}%</span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>

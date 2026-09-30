@@ -36,26 +36,36 @@
     </div>
 
     <!-- Washing verdict -->
-    <div class="nc-wash nc-wash--{{ wash.code }} nc-row">
-      <i class="wi {{ wash.icon }} nc-wash-icon"></i>
-      <div class="nc-col nc-grow">
-        <span class="value value--xlarge nc-nowrap">{{ wash.headline }}</span>
-        <span class="title title--large">{{ wash.detail }}</span>
-        {% if wash.why %}<span class="label">{{ wash.why | capitalize }}</span>{% endif %}
+    <div class="nc-wash nc-wash--{{ wash.code }} nc-col nc-col--center">
+      <div class="nc-row nc-row--wide">
+        <i class="wi {{ wash.icon }} nc-wash-icon"></i>
+        <div class="nc-col nc-grow">
+          <span class="value value--xlarge nc-nowrap">{{ wash.headline }}</span>
+          <span class="title title--large">{{ wash.detail }}</span>
+          {% if wash.why %}<span class="label">{{ wash.why | capitalize }}</span>{% endif %}
+          {% if wash.tonight %}<span class="label">{{ wash.tonight }}</span>{% endif %}
+        </div>
       </div>
       {% if wash.out_at %}
-        <div class="nc-col nc-stat">
-          <span class="label">Out{% if wash.when == "tomorrow" %} tomorrow{% endif %}</span>
-          <span class="value value--small">{{ wash.out_at }}</span>
-        </div>
-        <div class="nc-col nc-stat">
-          <span class="label">Dry by</span>
-          <span class="value value--small">{% if wash.dry_by %}{{ wash.dry_by }}{% else %}–{% endif %}</span>
-        </div>
-        <div class="nc-col nc-stat">
-          <span class="label">In by</span>
-          <span class="value value--small">{{ wash.in_by }}</span>
-          <span class="description">{% if wash.in_why == "rain" %}rain{% else %}sunset{% endif %}</span>
+        <div class="nc-row nc-stats">
+          <div class="nc-col nc-stat">
+            <span class="label">Out{% if wash.when == "tomorrow" %} tomorrow{% endif %}</span>
+            <span class="value value--small">{{ wash.out_at }}</span>
+          </div>
+          <div class="nc-stats-rule"></div>
+          {% for l in wash.loads %}
+            <div class="nc-col nc-stat">
+              <span class="label">{{ l.name }} dry</span>
+              <span class="value value--small">{% if l.dry_by %}{{ l.dry_by }}{% else %}–{% endif %}</span>
+              {% unless l.dry_by %}<span class="description">won't dry</span>{% endunless %}
+            </div>
+          {% endfor %}
+          <div class="nc-stats-rule"></div>
+          <div class="nc-col nc-stat">
+            <span class="label">In by</span>
+            <span class="value value--small">{{ wash.in_by }}</span>
+            <span class="description">{% if wash.in_why == "rain" %}rain{% else %}sunset{% endif %}</span>
+          </div>
         </div>
       {% endif %}
     </div>
@@ -79,5 +89,5 @@
 
 <div class="title_bar">
   <span class="title">Ministry of Meteorology, Laundry &amp; Associated Atmospheric Affairs</span>
-  <span class="instance">{% if now %}Updated {{ now.time }} · {{ load | capitalize }} load{% endif %}</span>
+  <span class="instance">{% if now %}Updated {{ now.time }}{% endif %}</span>
 </div>
