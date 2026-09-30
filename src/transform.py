@@ -32,6 +32,7 @@ guess, to be calibrated against real washing.
 Stdlib only: TRMNL's transform runtime has no pip installs.
 """
 import math
+import re
 from datetime import datetime, timedelta
 
 # ---- Tunables -------------------------------------------------------------
@@ -40,11 +41,12 @@ from datetime import datetime, timedelta
 DRY_NEED = {"light": 0.9, "normal": 1.3, "heavy": 1.9}
 VERDICT_LOAD = "normal"
 
-# Rain is graded, not a yes/no cliff:
-# - an hour is "wet" (the washing must be in) if rain is likely: this chance
-#   or more, or this much rain forecast;
+# Rain is graded, not a yes/no cliff, and judged on its *chance* alone: that
+# comes from many model runs, so it already allows for their disagreement,
+# while the forecast amount is one run's guess. (The lawn is different: how
+# wet it gets depends on the amount, so mowing uses both.)
+# - an hour is "wet" (the washing must be in) from this chance;
 WET_PROB = 60       # %
-WET_MM = 0.2        # mm in the hour
 # - below that, from this chance up, the washing stays out but the hour's
 #   drying is scaled by the chance it stays dry (35% -> 65% of the drying);
 SLOW_PROB = 20      # %
@@ -59,6 +61,9 @@ PARTIAL_OK = 0.6
 
 # Drying rate that fills the timeline bar to 100%.
 RATE_FULL = 0.45    # mm/h
+
+# Say the line is sheltered when less than this share of the wind reaches it.
+SHELTERED = 0.7
 
 # ---- Garden ---------------------------------------------------------------
 # Up to three obstructions near the line (house, fence, shed, tree...), each
@@ -82,6 +87,7 @@ COMPASS_WORDS = {"north": "n", "north-east": "ne", "northeast": "ne", "east": "e
 #   wind       share of the solid-wall wind reduction it gives (porous = less)
 OBSTRUCTION_TYPES = {
     "fence":    {"name": "fence",    "profile": [(1.8, 0)],            "half_width": None, "shade": 1.0, "wind": 0.8},
+    "fence_section": {"name": "fence", "profile": [(1.8, 0)],          "half_width": 2.5,  "shade": 1.0, "wind": 0.8},
     "hedge":    {"name": "hedge",    "profile": [(3.0, 0)],            "half_width": None, "shade": 0.9, "wind": 0.6},
     "shed":     {"name": "shed",     "profile": [(2.5, 0)],            "half_width": 1.5,  "shade": 1.0, "wind": 1.0},
     "bungalow": {"name": "bungalow", "profile": [(2.7, 0), (5.5, 4)],  "half_width": None,  "shade": 1.0, "wind": 1.0},
@@ -89,10 +95,10 @@ OBSTRUCTION_TYPES = {
     "house3":   {"name": "house",    "profile": [(7.8, 0), (11.0, 4)], "half_width": None,  "shade": 1.0, "wind": 1.0},
     "tree":     {"name": "tree",     "profile": [(10.0, 0)],           "half_width": 3.0,  "shade": 0.7, "wind": 0.5},
 }
-# The washing is a band hanging from the line: the line itself is typically
-# 5.5-7.5 ft up (take 2.0 m), and items hang about 0.8 m below it on average.
-WASHING_TOP = 2.0     # m
-WASHING_BOTTOM = 1.2  # m
+# The washing is a band hanging from the line: the line's height is a
+# setting (default 2.0 m, about 6.5 ft) and items hang about 0.8 m below it.
+DEFAULT_LINE_HEIGHT = 2.0  # m
+HANG = 0.8                 # m
 DEFAULT_DISTANCE = 4
 
 # Wind reduction behind a solid obstruction, by distance in obstruction
@@ -108,7 +114,8 @@ def obstruction_type(label):
     t = label.strip().lower()
     if t in OBSTRUCTION_TYPES:
         return t
-    for words, key in ((("fence", "wall"), "fence"), (("hedge",), "hedge"),
+    for words, key in ((("section", "short"), "fence_section"),
+                       (("fence", "wall"), "fence"), (("hedge",), "hedge"),
                        (("shed", "garage"), "shed"), (("tree",), "tree"),
                        (("bungalow", "1 storey"), "bungalow"),
                        (("loft", "3 storey", "3-storey", "11 m"), "house3"),
@@ -158,7 +165,15 @@ def parse_garden(fields):
     exposure = EXPOSURE.get((pick("shelter").lower().split() or ["open"])[0], 1.0)
     if not obstructions and exposure == 1.0:
         return None
-    return {"obstructions": obstructions, "exposure": exposure}
+    # Line height: a value in metres, or a label like "6.5 ft (2.0 m)".
+    metres = [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)\s*m\b", pick("line_height"))]
+    try:
+        top = metres[-1] if metres else float(pick("line_height"))
+    except ValueError:
+        top = DEFAULT_LINE_HEIGHT
+    top = min(max(top, 1.2), 3.0)
+    return {"obstructions": obstructions, "exposure": exposure,
+            "top": top, "bottom": max(top - HANG, 0.3)}
 
 
 def sun_position(when, utc_offset, lat, lon):
@@ -194,9 +209,10 @@ def _facing(ob, az):
     return c
 
 
-def band_below(height):
+def band_below(height, garden):
     """Share of the washing band that's below `height`."""
-    return min(max((height - WASHING_BOTTOM) / (WASHING_TOP - WASHING_BOTTOM), 0.0), 1.0)
+    top, bottom = garden["top"], garden["bottom"]
+    return min(max((height - bottom) / (top - bottom), 0.0), 1.0)
 
 
 def shadow_height(ob, elev, az):
@@ -218,7 +234,7 @@ def shading(elev, az, garden):
         return 1.0, None
     blocked, name = 0.0, None
     for ob in garden["obstructions"]:
-        share = band_below(shadow_height(ob, elev, az)) * ob["shade"]
+        share = band_below(shadow_height(ob, elev, az), garden) * ob["shade"]
         if share > blocked:
             blocked, name = share, ob["name"]
     return blocked, name
@@ -232,7 +248,13 @@ def shade_fraction(start, end, geo, garden, steps=4):
 
 def wind_factor(from_deg, garden):
     """Share of the forecast wind that reaches the line."""
+    return wind_shelter(from_deg, garden)[0]
+
+
+def wind_shelter(from_deg, garden):
+    """(share of the wind reaching the line, name of the biggest blocker)."""
     factor = garden["exposure"]
+    biggest, name = 0.0, None
     for ob in garden["obstructions"]:
         c = _facing(ob, from_deg)
         if not c:
@@ -245,8 +267,11 @@ def wind_factor(from_deg, garden):
                 reduction = r0 + (r1 - r0) * (x - x0) / (x1 - x0)
                 break
         # Washing above the obstruction's top catches the wind over it.
-        factor *= 1 - reduction * c * ob["wind"] * band_below(top)
-    return factor
+        cut = reduction * c * ob["wind"] * band_below(top, garden)
+        factor *= 1 - cut
+        if cut > biggest:
+            biggest, name = cut, ob["name"]
+    return factor, name
 
 
 def et0_hourly(temp, rh, u2, rs_w, elev, z):
@@ -454,6 +479,7 @@ def build_hours(data, garden=None):
         mm = hourly["precipitation"][i] or 0
         wind_mph = open_wind = mid(wind, i, j) or 0
         shade = 0.0
+        sheltered_by = None
 
         if own_et0:
             t, h = mid(temp, i, j), mid(rh, i, j)
@@ -464,7 +490,8 @@ def build_hours(data, garden=None):
             if garden:
                 shade = shade_fraction(start, end, geo, garden)
                 if wdir[i] is not None:
-                    wind_mph *= wind_factor(wdir[i], garden)
+                    share, sheltered_by = wind_shelter(wdir[i], garden)
+                    wind_mph *= share
                 rs = (sw[i] or 0) - (direct[i] or 0) * shade
                 rate = et0_hourly(t, h, wind_mph * MPH * U10_TO_U2, rs, elev, z)
         else:
@@ -477,11 +504,12 @@ def build_hours(data, garden=None):
             "prob": prob,
             "mm": mm,
             "day": bool(is_day[j] or is_day[i]),
-            "wet": prob >= WET_PROB or mm >= WET_MM,
+            "wet": prob >= WET_PROB,
             "rh": mid(rh, i, j),
             "temp": temp[j],
             "wind": wind_mph,
             "open_wind": open_wind,
+            "sheltered_by": sheltered_by,
             "code": code[j],
             "shade": shade,
         })
@@ -542,8 +570,10 @@ def day_summary(hours, rise, sset, fallback_code):
 
 # ---- Mowing ---------------------------------------------------------------
 # The lawn is "wet" with some amount of water (mm-ish) that evaporation has
-# to clear before it's worth mowing. Rain soaks it (more rain, softer ground,
-# longer to recover); humid nights add dew. Open-ground ET0 dries it.
+# to clear before it's worth mowing. Whether it rains is judged on the chance,
+# like the washing; the forecast amount only sets how wet it gets when it
+# does (more rain, softer ground, longer to recover). Humid nights add dew.
+# Open-ground ET0 dries it.
 MOW_RAIN_BASE = 0.4     # water left by any rain, mm of ET0 to clear
 MOW_RAIN_PER_MM = 0.15  # extra per mm of rain (soggy ground)
 MOW_RAIN_MAX = 2.5      # cap: a very wet day takes the next day to recover
@@ -581,16 +611,20 @@ def evening_stop(hours, sset):
 def mow_window(hours, rise, sset, after):
     """Longest spell on this day when the grass is dry enough to mow.
 
-    Returns (start, end) or None. Spells before `after` are ignored.
+    Returns ((start, end) or None, whether the grass is wet at `after`).
+    Spells before `after` are ignored.
     """
+    wet_at_after = None
     water = MOW_DEW
     best, cur = None, None
     stop = evening_stop(hours, sset)
     for h in hours:
         if h["start"] >= stop:
             break
-        rained = h["mm"] >= 0.1 or h["prob"] >= MOW_RAIN_PROB
+        rained = h["prob"] >= MOW_RAIN_PROB
         dry_at_start = water <= 0
+        if wet_at_after is None and h["start"] + timedelta(hours=1) > after:
+            wet_at_after = not dry_at_start or rained
         if rained:
             water = max(water, min(MOW_RAIN_BASE + MOW_RAIN_PER_MM * h["mm"], MOW_RAIN_MAX))
         elif not h["day"] and (h["rh"] or 0) >= MOW_DEW_RH:
@@ -608,7 +642,7 @@ def mow_window(hours, rise, sset, after):
             cur = None
     if best:
         best = (best[0], min(best[1], stop))
-    return best if best and best[1] - best[0] >= MOW_MIN else None
+    return (best if best and best[1] - best[0] >= MOW_MIN else None), bool(wet_at_after)
 
 
 def night_low(hours, after, until):
@@ -653,7 +687,7 @@ def simulate(hours, start, need, sunset):
             rate *= 1 - h["prob"] / 100
         probs.append((h["prob"], h["start"]))
         humid.append(h["rh"])
-        winds.append((h["open_wind"], h["wind"]))
+        winds.append((h["open_wind"], h["wind"], h.get("sheltered_by")))
 
         if rate > 0 and got + rate * frac >= need:
             dry_at = seg_start + timedelta(hours=(need - got) / rate)
@@ -686,9 +720,10 @@ def _result(dry_at, stop_at, why, done, probs, humid, winds):
         "max_prob_at": [t for p, t in probs if p == max_prob] if max_prob else [],
         "avg_rh": sum(humid) / len(humid) if humid else None,
         # Forecast (open) wind, and the share of it that reaches the line.
-        "avg_wind": sum(o for o, _ in winds) / len(winds) if winds else None,
-        "line_share": (sum(w for _, w in winds) / sum(o for o, _ in winds))
-                      if winds and sum(o for o, _ in winds) > 0 else 1.0,
+        "avg_wind": sum(o for o, _, _ in winds) / len(winds) if winds else None,
+        "line_share": (sum(w for _, w, _ in winds) / sum(o for o, _, _ in winds))
+                      if winds and sum(o for o, _, _ in winds) > 0 else 1.0,
+        "sheltered_by": most_common([n for _, _, n in winds if n]) if any(n for _, _, n in winds) else None,
     }
 
 
@@ -703,8 +738,9 @@ def why_text(sim):
         # garden takes much of it away.
         bits.append("calm" if wind < 4 else "light winds" if wind < 8 else
                     "breezy" if wind < 15 else "windy")
-        if sim["line_share"] < 0.6:
-            bits.append("sheltered line")
+        if sim["line_share"] < SHELTERED:
+            by = sim["sheltered_by"]
+            bits.append(f"sheltered by the {by}" if by else "sheltered")
     if sim["max_prob"] < 15 and sim["stop_why"] != "rain":
         bits.append("low rain risk")  # higher chances are in the headline or chart
     return ", ".join(b for b in bits if b)
@@ -858,7 +894,7 @@ def no_drying_note(hours, after, sset):
 def rain_tonight(hours, sunset, next_sunrise):
     """First wet hour between sunset and the next sunrise, as a warning."""
     for h in hours:
-        if sunset <= h["start"] < next_sunrise and (h["prob"] >= TONIGHT_PROB or h["mm"] >= WET_MM):
+        if sunset <= h["start"] < next_sunrise and h["prob"] >= TONIGHT_PROB:
             return f"Rain from {hhmm(h['start'])} tonight, don't leave it out"
     return None
 
@@ -965,13 +1001,15 @@ def run(input):
         text, icon = day_summary(hours, rise, sset, daily["weather_code"][i])
         day_probs = [h["prob"] for h in daylight(hours, rise, sset)]
         rain = max(day_probs) if day_probs else daily["precipitation_probability_max"][i] or 0
-        mow = mow_window(hours, rise, sset, max(now, rise))
+        mow, wet_now = mow_window(hours, rise, sset, max(now, rise))
         if mow:
             mow_text = f"Mow {hhmm(quarter(mow[0], up=True))}–{hhmm(quarter(mow[1]))}"
         elif now + MOW_MIN > evening_stop(hours, sset):
             mow_text = "Too late to mow"
-        else:
+        elif wet_now:
             mow_text = "Too wet to mow"
+        else:
+            mow_text = "Not enough time to mow"
         days.append({
             "name": "Today" if i == first else "Tomorrow",
             "text": text,
@@ -985,6 +1023,11 @@ def run(input):
         })
 
     raining_now = (cur.get("precipitation") or 0) > 0
+    if raining_now:
+        # It's raining now, whatever the forecast chance said: this hour's wet.
+        for h in hours:
+            if h["start"] <= now < h["start"] + timedelta(hours=1):
+                h["wet"] = True
     wash = washing(hours, now, suns, DRY_NEED[VERDICT_LOAD], raining_now)
 
     win = wash["window"]
@@ -1029,7 +1072,14 @@ def run(input):
             note = "Nothing dries before the rain"
         else:
             note = no_drying_note(hours, now, sunset)
-        rows[today] = {"name": "Today", "out": None, "loads": [], "in_by": None, "in_why": None,
+        # Even when it's not worth putting out, say when anything already on
+        # the line has to come in.
+        if now < sunset:
+            in_at, in_why = next_stop(hours, now, sunset)
+            in_by = "Now" if in_at <= now else hhmm(in_at)
+        else:
+            in_by, in_why = "Now", "sunset"
+        rows[today] = {"name": "Today", "out": None, "loads": [], "in_by": in_by, "in_why": in_why,
                        "note": note}
     if tomorrow not in rows and tomorrow in suns:
         rows[tomorrow] = day_plan("Tomorrow", hours, *suns[tomorrow])

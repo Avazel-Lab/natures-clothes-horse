@@ -64,6 +64,7 @@
             <span class="value value--small">{{ row.in_by }} <span class="description">{{ row.in_why }}</span></span>
           {% else %}
             <span class="title nc-plan-note">{{ row.note }}</span>
+            {% if row.in_by %}<span class="value value--small">{{ row.in_by }} <span class="description">{{ row.in_why }}</span></span>{% endif %}
           {% endif %}
         {% endfor %}
       </div>
@@ -76,7 +77,7 @@
         <span class="description">
           <span class="nc-key nc-key--win"></span>washing out
           <span class="nc-key nc-key--dry"></span>drying
-          <span class="nc-key nc-key--wet"></span>rain likely (60%+, or 0.2 mm+ forecast)
+          <span class="nc-key nc-key--wet"></span>rain likely (60%+)
         </span>
       </div>
       {% render "chart", chart: chart %}

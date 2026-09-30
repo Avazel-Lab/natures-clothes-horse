@@ -9,6 +9,7 @@ custom_fields:
   location: "{{ env.WASHING_LOCATION }}"
   # trmnlp only interpolates env in the polling URL, so these are literal.
   # Try e.g. obstruction_1_type: house3, obstruction_1_direction: nw.
+  line_height: "2.0"
   obstruction_1_type: none
   obstruction_1_direction: nw
   obstruction_1_distance: "4"

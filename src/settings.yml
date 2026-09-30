@@ -34,6 +34,20 @@ custom_fields:
   field_type: lat_lon
   name: Location
   description: Where your washing line is. Search for a town or postcode, or enter "lat,lon".
+- keyname: line_height
+  field_type: select
+  name: Washing line height
+  description: Height of the line itself; the washing hangs about 0.8 m below it. Decides how much of it a fence or hedge shades and shelters.
+  optional: true
+  options:
+  - 5 ft (1.5 m): '1.5'
+  - 5.5 ft (1.7 m): '1.7'
+  - 6 ft (1.8 m): '1.8'
+  - 6.5 ft (2.0 m): '2.0'
+  - 7 ft (2.1 m): '2.1'
+  - 7.5 ft (2.3 m): '2.3'
+  - 8 ft (2.4 m): '2.4'
+  default: '2.0'
 - keyname: obstruction_1_type
   field_type: select
   name: Obstruction 1
@@ -43,10 +57,11 @@ custom_fields:
     hidden:
     - obstruction_1_direction
     - obstruction_1_distance
-  description: Anything near the line that blocks sun or wind, such as your house, a fence, a shed or a tree. Add up to three. Houses and fences are treated as running right across; sheds and trees as narrow.
+  description: Anything near the line that blocks sun or wind, such as your house, a fence, a shed or a tree. Add up to three. Houses and full-width fences are treated as running right across; short fence sections, sheds and trees as narrow, so wind and sun get round them.
   options:
   - None: none
-  - Fence or wall (~1.8 m): fence
+  - Fence or wall, full width (~1.8 m): fence
+  - Fence or wall, short section (~1.8 m, ~5 m long): fence_section
   - Tall hedge (~3 m): hedge
   - Shed or garage (~2.5 m): shed
   - Bungalow, 1 storey (~5.5 m to ridge): bungalow
@@ -97,7 +112,8 @@ custom_fields:
     - obstruction_2_distance
   options:
   - None: none
-  - Fence or wall (~1.8 m): fence
+  - Fence or wall, full width (~1.8 m): fence
+  - Fence or wall, short section (~1.8 m, ~5 m long): fence_section
   - Tall hedge (~3 m): hedge
   - Shed or garage (~2.5 m): shed
   - Bungalow, 1 storey (~5.5 m to ridge): bungalow
@@ -148,7 +164,8 @@ custom_fields:
     - obstruction_3_distance
   options:
   - None: none
-  - Fence or wall (~1.8 m): fence
+  - Fence or wall, full width (~1.8 m): fence
+  - Fence or wall, short section (~1.8 m, ~5 m long): fence_section
   - Tall hedge (~3 m): hedge
   - Shed or garage (~2.5 m): shed
   - Bungalow, 1 storey (~5.5 m to ridge): bungalow

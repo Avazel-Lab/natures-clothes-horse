@@ -171,9 +171,10 @@ class GradedRain(unittest.TestCase):
         w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 60}}))
         self.assertEqual(w["code"], "wait")
 
-    def test_forecast_rain_amount_counts_whatever_the_chance(self):
+    def test_rain_chance_is_the_source_of_truth_not_the_amount(self):
+        # One model run says 0.5 mm; the chance across runs is only 10%.
         w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 10, "mm": 0.5}}))
-        self.assertEqual(w["code"], "wait")
+        self.assertEqual(w["code"], "go")
 
     def test_small_chances_are_ignored(self):
         w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 15}}))
@@ -212,7 +213,7 @@ class WindWords(unittest.TestCase):
             data = reading()
             data["hourly"]["wind_direction_10m"] = [315] * len(data["hourly"]["time"])
             return transform.run(with_garden(data, fields))["wash"]["why"]
-        self.assertIn("breezy, sheltered line", why(HOUSE_NW))
+        self.assertIn("breezy, sheltered by the house", why(HOUSE_NW))
         self.assertNotIn("sheltered", why({}))
 
 
@@ -351,11 +352,33 @@ class Garden(unittest.TestCase):
 
     def test_every_type_label_is_recognised(self):
         labels = {"Fence or wall (~1.8 m)": "fence", "Tall hedge (~3 m)": "hedge",
-                  "Shed or garage (~2.5 m)": "shed", "Bungalow, 1 storey (~5.5 m to ridge)": "bungalow",
+                  "Shed or garage (~2.5 m)": "shed",
+                  "Fence or wall, short section (~1.8 m, ~5 m long)": "fence_section",
+                  "Fence or wall, full width (~1.8 m)": "fence", "Bungalow, 1 storey (~5.5 m to ridge)": "bungalow",
                   "House, 2 storeys (~8.5 m to ridge)": "house2",
                   "House, 3 storeys (~11 m to ridge)": "house3", "Tree (~10 m)": "tree", "None": None}
         for label, key in labels.items():
             self.assertEqual(transform.obstruction_type(label), key, label)
+
+    def test_line_height_setting(self):
+        self.assertEqual(garden(dict(HOUSE_NW, line_height="2.3"))["top"], 2.3)
+        self.assertEqual(garden(dict(HOUSE_NW, line_height="7.5 ft (2.3 m)"))["top"], 2.3)
+        self.assertEqual(garden(dict(HOUSE_NW, line_height="nonsense"))["top"], 2.0)
+
+    def test_a_higher_line_clears_a_fence(self):
+        fence = {"obstruction_1_type": "fence", "obstruction_1_direction": "sw",
+                 "obstruction_1_distance": "2"}
+        low = transform.wind_factor(225, garden(dict(fence, line_height="1.7")))
+        high = transform.wind_factor(225, garden(dict(fence, line_height="2.3")))
+        self.assertLess(low, 0.6)       # most of the washing below the fence top
+        self.assertGreater(high, 0.8)   # most of it above
+
+    def test_a_short_fence_section_lets_wind_round_it(self):
+        section = garden({"obstruction_1_type": "Fence or wall, short section (~1.8 m, ~5 m long)",
+                          "obstruction_1_direction": "sw", "obstruction_1_distance": "2"})
+        self.assertEqual(section["obstructions"][0]["half_width"], 2.5)
+        self.assertLess(transform.wind_factor(225, section), 1.0)   # straight over it
+        self.assertEqual(transform.wind_factor(300, section), 1.0)  # WNW: round its end
 
     def test_older_single_house_settings_still_work(self):
         old = garden({"garden_faces": "se", "house_height": "2", "line_distance": "4"})
@@ -364,7 +387,8 @@ class Garden(unittest.TestCase):
     def test_nothing_set_means_no_adjustment(self):
         self.assertIsNone(garden({}))
         self.assertIsNone(garden({"obstruction_1_type": "none", "obstruction_1_direction": "n"}))
-        self.assertEqual(garden({"shelter": "some"}), {"obstructions": [], "exposure": 0.85})
+        self.assertEqual(garden({"shelter": "some"}),
+                         {"obstructions": [], "exposure": 0.85, "top": 2.0, "bottom": 1.2})
 
     def test_sun_position_at_solar_noon(self):
         # Alton, 30 Sep: sun due south at about 36 degrees, near 12:55 BST.
@@ -463,6 +487,16 @@ class PlanTable(unittest.TestCase):
         self.assertEqual(today["out"], "Now")
         self.assertEqual([l["dry_by"] for l in today["loads"]], ["13:00", None, None])
 
+    def test_in_by_is_given_even_when_not_worth_putting_out(self):
+        # For washing that's already out.
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
+        today = self.plan(now="2026-09-30T12:00", overrides=rain)["Today"]
+        self.assertEqual((today["out"], today["in_by"], today["in_why"]), (None, "14:00", "rain"))
+        late = self.plan(now="2026-09-30T17:30")["Today"]
+        self.assertEqual((late["note"], late["in_by"], late["in_why"]), ("Too late today", "19:00", "sunset"))
+        dark = self.plan(now="2026-09-30T21:00")["Today"]
+        self.assertEqual(dark["in_by"], "Now")
+
     def test_notes_when_nothing_dries(self):
         self.assertEqual(self.plan(now="2026-09-30T16:30")["Today"]["note"], "Too late today")
         rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
@@ -501,7 +535,7 @@ class Mowing(unittest.TestCase):
         self.assertEqual(self.mow(rate=0.3, overrides=night)["tomorrow"]["mow"], "Mow 08:00–19:00")
 
     def test_heavy_morning_rain_delays_mowing(self):
-        rain = {f"2026-09-30T{h}:00": {"mm": 5.0} for h in ("09", "10")}
+        rain = {f"2026-09-30T{h}:00": {"mm": 5.0, "prob": 80} for h in ("09", "10")}
         # 0.4 + 0.15 * 5 = 1.15 mm to dry at 0.3 mm/h: dry after 4 hours.
         self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Mow 15:00–19:00")
 
@@ -509,8 +543,20 @@ class Mowing(unittest.TestCase):
         self.assertEqual(self.mow(rate=0.3, prob=80)["today"]["mow"], "Too wet to mow")
 
     def test_short_gap_isnt_a_window(self):
-        rain = {f"2026-09-30T{h}:00": {"mm": 1.0} for h in ("11", "14", "17")}
-        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Too wet to mow")
+        rain = {f"2026-09-30T{h}:00": {"mm": 1.0, "prob": 80} for h in ("11", "14", "17")}
+        # Dry at 10:00, but showers from 11:00 leave no 2-hour spell.
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Not enough time to mow")
+        # Seen from 12:00, after the first shower, the grass is wet.
+        self.assertEqual(self.mow(now="2026-09-30T12:00", rate=0.3, overrides=rain)["today"]["mow"],
+                         "Too wet to mow")
+
+    def test_a_rain_amount_with_little_chance_doesnt_stop_mowing(self):
+        rain = {"2026-09-30T12:00": {"mm": 1.2, "prob": 4}}
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Mow 10:00–19:00")
+
+    def test_dry_grass_but_rain_soon_is_not_enough_time(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(11, 19)}
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Not enough time to mow")
 
     def test_too_late_today(self):
         # Under two hours left before sunset.

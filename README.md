@@ -36,11 +36,13 @@ it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
 1.9 mm. The verdict is for a normal load; the screen also shows when light
 and heavy loads would be dry if hung out at the same time.
 
-- Rain is graded. An hour is **wet** (rain likely: the washing has to come
-  in before it, and the chart hatches it) if the chance is ≥ 60% or ≥ 0.2 mm
-  is forecast. From 20% up to that, the washing stays out but the hour's
-  drying is scaled by the chance it stays dry, so a 35% hour gives 65% of
-  its drying. The overnight warning starts at 40%.
+- Rain is judged on its **chance** alone: that comes from many model runs,
+  so it already allows for their disagreement, while the forecast amount is
+  one run's guess. An hour is **wet** (rain likely: the washing has to come
+  in before it, and the chart hatches it) from 60%. From 20% up to that, the
+  washing stays out but the hour's drying is scaled by the chance it stays
+  dry, so a 35% hour gives 65% of its drying. The overnight warning starts
+  at 40%. If it's raining right now, the current hour counts as wet.
 - Drying stops at **sunset**.
 - **Risky** means it'll dry, but with less than an hour to spare before rain
   or sunset, or with a rain chance of 25% or more along the way. It also
@@ -50,7 +52,8 @@ Under the verdict, a small table gives **Today** and **Tomorrow** rows: when
 to put it out, when light, normal and heavy loads would be dry, and when it
 has to come in. Tomorrow's row uses the earliest start that dries a normal
 load (or a light one if that's all that's possible). If nothing would dry,
-the row says why ("Too late today", "Rain most of the day").
+the row says why ("Too late today", "Rain most of the day"). Today's row
+always gives an **In by** time, for washing that's already out.
 
 The chart shows the **next 24 hours** from now: bar height is drying
 strength (none at night, marked by a black "night" band), rain-likely hours are hatched,
@@ -76,7 +79,8 @@ distance. **General exposure** tweaks wind for everything else.
 
 | Type | Modelled as |
 |---|---|
-| Fence or wall | 1.8 m, runs right across, fairly solid to wind |
+| Fence or wall, full width | 1.8 m, runs right across, fairly solid to wind |
+| Fence or wall, short section | 1.8 m, 5 m long, so wind and sun get round it |
 | Tall hedge | 3 m, runs right across, lets some sun and wind through |
 | Shed or garage | 2.5 m, 3 m wide |
 | Bungalow / house | eaves plus a ridge set back 4 m (ridge 5.5, 8.5 or 11 m); runs right across, since neighbours usually continue the building line |
@@ -92,11 +96,12 @@ Each hour:
   most when the line is within one or two obstruction-heights and the wind
   blows straight over it.
 
-The washing is treated as a band from 1.2 m to 2.0 m: a line about 6.5 ft
-up (the typical 5.5-7.5 ft range) with items hanging about 0.8 m below it.
-An obstruction shades only the part of the band below its shadow, and
-shelters only the part below its top, so a 1.8 m fence never covers the top
-of the washing and only shades the lower part when the sun is low. Shade
+The washing is treated as a band hanging about 0.8 m below the line, whose
+height is a setting (5-8 ft; default 6.5 ft, 2.0 m). An obstruction shades
+only the part of the band below its shadow, and shelters only the part below
+its top, so on a high line most of the washing clears a 1.8 m fence. The
+conditions line names the main wind blocker when less than 70% of the wind
+reaches the line ("sheltered by the house"). Shade
 timing should be good to roughly half an hour; wind shelter is a rough
 estimate, to be tuned with real drying times.
 
@@ -107,9 +112,11 @@ not applied" if TRMNL didn't pass the settings to the transform.
 ### Mowing window
 
 Each day box shows the longest spell (at least 2 hours) when the lawn should
-be dry enough to mow, e.g. "Mow 11:00–17:30", or "Too wet to mow". The lawn
-holds some water that open-ground drying has to clear: any rain leaves 0.4 mm
-plus 0.15 mm per mm of rain (soggy ground takes longer), capped at 2.5 mm, and
+be dry enough to mow, e.g. "Mow 11:00–17:30", or else "Too wet to mow" (the
+grass is wet now), "Not enough time to mow" or "Too late to mow". The lawn
+holds some water that open-ground drying has to clear. Whether it rains is
+judged on the chance (50%+), like the washing; when it does, it leaves 0.4 mm
+plus 0.15 mm per mm of forecast rain (soggy ground takes longer), capped at 2.5 mm, and
 a humid night (RH ≥ 90%) leaves 0.3 mm of dew. In the evening, mowing runs
 until sunset unless dew is likely first: in the last two hours before
 sunset it stops at the first hour humid enough for dew, which is 75-92% RH

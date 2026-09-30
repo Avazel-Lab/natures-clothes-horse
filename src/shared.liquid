@@ -40,7 +40,7 @@
   .nc-wash--go .nc-plan { border-color: #fff; }
   .nc-plan > * { justify-self: center; }
   .nc-plan > .nc-plan-day { justify-self: start; }
-  .nc-plan-note { grid-column: 2 / -1; }
+  .nc-plan-note { grid-column: 2 / 6; }
 
   /* Drying timeline. Each bar sets --pct inline, from the data. */
   .nc-chart { height: 150px; display: flex; gap: 2px; }
@@ -81,7 +81,7 @@
   {% for b in chart.bars %}
     <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.night %} nc-bar--night{% endif %}{% if b.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
       <div class="nc-bar-track">
-        {% unless small %}{% if b.prob >= 20 or b.wet %}<span class="nc-bar-prob"><span class="label label--small nc-num">{{ b.prob }}<span class="nc-unit">%</span></span></span>{% endif %}{% endunless %}
+        {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob"><span class="label label--small nc-num">{{ b.prob }}<span class="nc-unit">%</span></span></span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>
       </div>
       <span class="nc-bar-hour label label--small">{% if b.tick %}{{ b.label }}{% elsif small %}&nbsp;{% else %}{{ b.label }}{% endif %}</span>
