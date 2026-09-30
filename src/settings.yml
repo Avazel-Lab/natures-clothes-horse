@@ -37,6 +37,12 @@ custom_fields:
 - keyname: obstruction_1_type
   field_type: select
   name: Obstruction 1
+  optional: true
+  conditional_validation:
+  - when: none
+    hidden:
+    - obstruction_1_direction
+    - obstruction_1_distance
   description: Anything near the line that blocks sun or wind, such as your house, a fence, a shed or a tree. Add up to three. Houses and fences are treated as running right across; sheds and trees as narrow.
   options:
   - None: none
@@ -50,6 +56,7 @@ custom_fields:
   default: none
 - keyname: obstruction_1_direction
   field_type: select
+  optional: true
   name: Obstruction 1 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
@@ -64,6 +71,7 @@ custom_fields:
   default: nw
 - keyname: obstruction_1_distance
   field_type: select
+  optional: true
   name: Obstruction 1 distance
   description: From the line to the nearest face of it.
   options:
@@ -81,6 +89,12 @@ custom_fields:
 - keyname: obstruction_2_type
   field_type: select
   name: Obstruction 2
+  optional: true
+  conditional_validation:
+  - when: none
+    hidden:
+    - obstruction_2_direction
+    - obstruction_2_distance
   options:
   - None: none
   - Fence or wall (~1.8 m): fence
@@ -93,6 +107,7 @@ custom_fields:
   default: none
 - keyname: obstruction_2_direction
   field_type: select
+  optional: true
   name: Obstruction 2 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
@@ -107,6 +122,7 @@ custom_fields:
   default: sw
 - keyname: obstruction_2_distance
   field_type: select
+  optional: true
   name: Obstruction 2 distance
   description: From the line to the nearest face of it.
   options:
@@ -124,6 +140,12 @@ custom_fields:
 - keyname: obstruction_3_type
   field_type: select
   name: Obstruction 3
+  optional: true
+  conditional_validation:
+  - when: none
+    hidden:
+    - obstruction_3_direction
+    - obstruction_3_distance
   options:
   - None: none
   - Fence or wall (~1.8 m): fence
@@ -136,6 +158,7 @@ custom_fields:
   default: none
 - keyname: obstruction_3_direction
   field_type: select
+  optional: true
   name: Obstruction 3 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
@@ -150,6 +173,7 @@ custom_fields:
   default: s
 - keyname: obstruction_3_distance
   field_type: select
+  optional: true
   name: Obstruction 3 distance
   description: From the line to the nearest face of it.
   options:
@@ -166,6 +190,7 @@ custom_fields:
   default: '4'
 - keyname: shelter
   field_type: select
+  optional: true
   name: General exposure
   description: How sheltered the line is from everything not listed above (neighbours, trees further away). Tweaks wind only.
   options:
