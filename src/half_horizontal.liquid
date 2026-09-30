@@ -3,8 +3,8 @@
   <span class="title">Couldn't get the forecast: {{ error }}</span>
 {% else %}
   <div class="nc">
-    <div class="nc-row nc-grow" style="align-items: stretch;">
-      <div class="nc-row" style="flex: 0 0 36%;">
+    <div class="nc-row nc-row--stretch nc-grow">
+      <div class="nc-row nc-now--third">
         <i class="wi {{ now.icon }} nc-wi nc-now-icon"></i>
         <div class="nc-col">
           <span class="value value--large">{{ now.temp }}°</span>
@@ -14,22 +14,15 @@
         </div>
       </div>
       <div class="nc-wash nc-wash--{{ wash.code }} nc-row">
-        <i class="wi {{ wash.icon }} nc-wi" style="font-size: 44px;"></i>
+        <i class="wi {{ wash.icon }} nc-wi nc-wash-icon nc-wash-icon--small"></i>
         <div class="nc-col nc-grow">
           <span class="value value--small">{{ wash.headline }}</span>
           <span class="label">{{ wash.detail }}</span>
-          {% if wash.out_at %}<span class="description">Out {{ wash.out_at }}{% if wash.dry_by %} · dry {{ wash.dry_by }}{% endif %} · in by {{ wash.in_by }}</span>{% endif %}
+          <span class="description">{% render "wash_times", wash: wash %}</span>
         </div>
       </div>
     </div>
-    <div class="nc-chart" style="height: 80px;">
-      {% for b in chart.bars %}
-        <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}">
-          <div class="nc-bar-track"><div class="nc-bar-fill" style="height: {{ b.pct }}%;"></div></div>
-          <span class="nc-bar-hour label label--small">{{ b.label }}</span>
-        </div>
-      {% endfor %}
-    </div>
+    {% render "chart", chart: chart, small: true %}
   </div>
 {% endif %}
 </div>

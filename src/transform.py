@@ -83,13 +83,44 @@ WMO = {
 VERDICT_ICON = {"go": "wi-day-sunny", "risky": "wi-day-cloudy-gusts",
                 "wait": "wi-time-3", "tomorrow": "wi-time-9", "no": "wi-umbrella"}
 
+# Short names for rain types, for "Partly cloudy, then showers".
+def wet_word(code):
+    if code >= 95:
+        return "storms"
+    if code >= 85:
+        return "snow showers"
+    if code >= 80:
+        return "showers"
+    if code >= 71:
+        return "snow"
+    if code >= 61:
+        return "rain"
+    return "drizzle"
+
+
 COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
 
 
+DAY_TEXT = {0: "Sunny", 1: "Mostly sunny"}
+
+
 def describe(code, is_day=True):
     text, day, night = WMO.get(code, ("Unknown", "wi-na", "wi-na"))
+    if is_day:
+        text = DAY_TEXT.get(code, text)
     return text, (day if is_day else night)
+
+
+# Sky types for "Overcast, then sunny": code -> (bucket, text)
+def sky(code):
+    if code <= 1:
+        return 0, "sunny"
+    if code == 2:
+        return 1, "partly cloudy"
+    if code == 3:
+        return 2, "overcast"
+    return 3, "foggy"
 
 
 def compass(degrees):
@@ -106,6 +137,21 @@ def hhmm(dt):
 
 def rnd(x):
     return int(round(x))
+
+
+def most_common(codes):
+    """Most frequent code; ties go to the higher (worse) code."""
+    return max(set(codes), key=lambda c: (codes.count(c), c))
+
+
+def duration(td):
+    """4h20m -> 'about 4½ hours'."""
+    halves = round(td.total_seconds() / 1800)
+    if halves < 2:
+        return "under an hour"
+    whole, half = divmod(halves, 2)
+    n = f"{whole}½" if half else str(whole)
+    return f"about {n} hour{'' if n == '1' else 's'}"
 
 
 # ---- Hours ---------------------------------------------------------------
@@ -125,6 +171,7 @@ def build_hours(hourly):
             "wet": prob >= WET_PROB or mm >= WET_MM,
             "rh": hourly["relative_humidity_2m"][i],
             "wind": hourly["wind_speed_10m"][i],
+            "code": (hourly.get("weather_code") or [None] * len(hourly["time"]))[i],
         })
     return hours
 
@@ -135,6 +182,50 @@ def sun_times(daily):
         parse(d).date(): (parse(r), parse(s))
         for d, r, s in zip(daily["time"], daily["sunrise"], daily["sunset"])
     }
+
+
+def daylight(hours, rise, sset):
+    first = rise.replace(minute=0)
+    return [h for h in hours if first <= h["start"] < sset]
+
+
+def day_summary(hours, rise, sset, fallback_code):
+    """Conditions for the daylight part of a day.
+
+    Open-Meteo's daily weather code is the worst weather in the whole 24h,
+    so a sunny day with a drizzly night reads "Light drizzle". Instead: the
+    usual sky, plus any rain that lasts two hours or more.
+    """
+    day = [h for h in daylight(hours, rise, sset) if h["code"] is not None]
+    if not day:
+        return describe(fallback_code)
+    wet = [h for h in day if h["code"] >= 51]
+    dry = [h["code"] for h in day if h["code"] < 51]
+    noon = rise.replace(hour=12, minute=0)
+    if len(wet) < 2 and dry:
+        am = [sky(h["code"]) for h in day if h["code"] < 51 and h["start"] < noon]
+        pm = [sky(h["code"]) for h in day if h["code"] < 51 and h["start"] >= noon]
+        text, icon = describe(most_common(dry))
+        if am and pm:
+            am_sky, pm_sky = most_common(am), most_common(pm)
+            if abs(am_sky[0] - pm_sky[0]) >= 2:  # e.g. overcast -> sunny, not a slight change
+                text = f"{am_sky[1].capitalize()}, then {pm_sky[1]}"
+        return text, icon
+
+    wet_code = most_common([h["code"] for h in wet])
+    if not dry or len(wet) >= 0.6 * len(day):
+        return describe(wet_code)
+
+    text, icon = describe(most_common(dry))
+    if all(h["start"] < noon for h in wet):
+        text = f"{text}, early {wet_word(wet_code)}"
+    elif all(h["start"] >= noon for h in wet):
+        text = f"{text}, then {wet_word(wet_code)}"
+    else:
+        text = f"{text}, {wet_word(wet_code)} at times"
+    if len(wet) >= 3:
+        icon = describe(wet_code)[1]
+    return text, icon
 
 
 # ---- Washing engine ------------------------------------------------------
@@ -212,8 +303,8 @@ def why_text(sim):
         bits.append("dry air" if rh < 60 else "humid" if rh > 80 else None)
     if wind is not None:
         bits.append("breezy" if wind >= 8 else "still air" if wind < 4 else None)
-    p = sim["max_prob"]
-    bits.append("low rain risk" if p < 15 else f"{rnd(p)}% rain chance")
+    if sim["max_prob"] < 15:
+        bits.append("low rain risk")  # higher chances are in the headline or chart
     return ", ".join(b for b in bits if b)
 
 
@@ -233,51 +324,81 @@ def is_risky(sim):
             or sim["stop_at"] - sim["dry_at"] < MARGIN)
 
 
+def wait_reason(hours, now, start, raining_now):
+    """Why wait until `start`? Describe the rain in between."""
+    wet = [h for h in hours if h["wet"] and now < h["start"] + timedelta(hours=1) and h["start"] < start]
+    if not wet:
+        return "Better drying later"
+    until = hhmm(wet[-1]["start"] + timedelta(hours=1))
+    if raining_now:
+        return f"Should clear by {until}"
+    if wet[0]["start"] <= now:
+        return f"Rain likely until {until}"
+    return f"Rain {hhmm(wet[0]['start'])}–{until}, then dry"
+
+
+def risky_reason(sim):
+    if sim["stop_at"] - sim["dry_at"] < MARGIN:
+        if sim["stop_why"] == "rain":
+            return f"Rain due {hhmm(sim['stop_at'])}, cutting it fine"
+        return "Only just dry by sunset"
+    return f"{rnd(sim['max_prob'])}% chance of a shower"
+
+
+def not_today_reason(today_sim, now, sunset, raining_now):
+    if now >= sunset:
+        return "Too late for today"
+    if today_sim and today_sim["stop_why"] == "rain":
+        if raining_now or today_sim["stop_at"] <= now:
+            return "Wet on and off until dark"
+        return f"Rain from {hhmm(today_sim['stop_at'])}"
+    return "Not enough drying time left today"
+
+
 def washing(hours, now, suns, need, raining_now):
     """The verdict for one load size."""
     today, tomorrow = now.date(), now.date() + timedelta(days=1)
     sunrise, sunset = suns[today]
+    sim = None
 
-    if raining_now:
-        start, sim = first_good_start(hours, now, need, sunset)
-        if start:
-            return verdict("wait", "Raining now",
-                           f"Put it out at {hhmm(start)}",
-                           start=start, sim=sim)
-    elif now < sunset:
-        sim = simulate(hours, max(now, sunrise), need, sunset)
-        if sim["dry_at"]:
-            code = "risky" if is_risky(sim) else "go"
+    if now < sunset:
+        out = max(now, sunrise)
+        sim = simulate(hours, out, need, sunset)
+        if sim["dry_at"] and not raining_now:
+            if is_risky(sim):
+                return verdict("risky", "Risky, but go", risky_reason(sim),
+                               start=out, sim=sim)
             head = "Put it out now" if now >= sunrise else f"Put it out at {hhmm(sunrise)}"
-            if code == "risky":
-                head = "Risky, but go"
-            return verdict(code, head, why_text(sim),
-                           start=max(now, sunrise), sim=sim)
+            return verdict("go", head, f"Dry in {duration(sim['dry_at'] - out)}",
+                           start=out, sim=sim)
 
         start, later = first_good_start(hours, now, need, sunset)
         if start:
-            return verdict("wait", "Wait",
-                           f"Put it out at {hhmm(start)}",
+            return verdict("wait", "Raining now" if raining_now else "Wait",
+                           wait_reason(hours, now, start, raining_now),
                            start=start, sim=later)
 
-        if sim["done"] >= PARTIAL_OK and sim["stop_at"] > now:
+        if not raining_now and sim["done"] >= PARTIAL_OK and sim["stop_at"] > now:
             return verdict("risky", "Partly dry at best",
                            f"About {rnd(sim['done'] * 100)}% dry by {hhmm(sim['stop_at'])}",
-                           start=max(now, sunrise), sim=sim, partial=True)
+                           start=out, sim=sim, partial=True)
 
     # Nothing today: try tomorrow.
     if tomorrow in suns:
         t_rise, t_set = suns[tomorrow]
-        start, sim = first_good_start(hours, t_rise, need, t_set)
+        start, t_sim = first_good_start(hours, t_rise, need, t_set)
         if start:
-            return verdict("tomorrow", "Not today",
-                           f"Tomorrow from {hhmm(start)}", start=start, sim=sim)
+            v = verdict("tomorrow", "Not today",
+                        not_today_reason(sim, now, sunset, raining_now),
+                        start=start, sim=t_sim)
+            v["when"] = "tomorrow"
+            return v
 
     return verdict("no", "Dry it indoors", "No drying window today or tomorrow")
 
 
 def verdict(code, headline, detail, start=None, sim=None, partial=False):
-    v = {"code": code, "icon": VERDICT_ICON[code],
+    v = {"code": code, "icon": VERDICT_ICON[code], "when": "today",
          "headline": headline, "detail": detail,
          "out_at": None, "dry_by": None, "in_by": None, "in_why": None,
          "why": None, "window": None}
@@ -290,8 +411,6 @@ def verdict(code, headline, detail, start=None, sim=None, partial=False):
         # Window on the timeline: from out_at to dry_by (or in_by if partial).
         end = sim["stop_at"] if partial else sim["dry_at"]
         v["window"] = {"start": start, "end": end}
-        if code == "go":
-            v["detail"] = f"Dry by {hhmm(sim['dry_at'])}"
     return v
 
 
@@ -338,15 +457,17 @@ def run(input):
 
     days = []
     for i in range(min(2, len(daily["time"]))):
-        text, icon = describe(daily["weather_code"][i])
         rise, sset = suns[parse(daily["time"][i]).date()]
+        text, icon = day_summary(hours, rise, sset, daily["weather_code"][i])
+        day_probs = [h["prob"] for h in daylight(hours, rise, sset)]
+        rain = max(day_probs) if day_probs else daily["precipitation_probability_max"][i] or 0
         days.append({
             "name": "Today" if i == 0 else "Tomorrow",
             "text": text,
             "icon": icon,
             "hi": rnd(daily["temperature_2m_max"][i]),
             "lo": rnd(daily["temperature_2m_min"][i]),
-            "rain": rnd(daily["precipitation_probability_max"][i] or 0),
+            "rain": rnd(rain),
             "sunrise": hhmm(rise),
             "sunset": hhmm(sset),
         })

@@ -13,22 +13,25 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
-             sunrise="07:00", sunset="19:00", raining_now=False):
+             sunrise="07:00", sunset="19:00", raining_now=False, codes=None):
     """A synthetic two-day Open-Meteo response.
 
     Every daylight hour gets `rate` ET0, `prob` rain chance and `mm` rain,
     except hours listed in `overrides`: {"2026-09-30T15:00": {"prob": 80}}.
+    `codes` optionally gives today's hourly weather codes: {hour: code}.
     """
     overrides = overrides or {}
     hourly = {k: [] for k in ("time", "et0_fao_evapotranspiration", "precipitation_probability",
-                              "precipitation", "is_day", "relative_humidity_2m", "wind_speed_10m")}
+                              "precipitation", "is_day", "relative_humidity_2m", "wind_speed_10m",
+                              "weather_code")}
     for day in ("2026-09-30", "2026-10-01"):
         for hr in range(24):
             ts = f"{day}T{hr:02d}:00"
             is_day = int(sunrise[:2]) <= hr < int(sunset[:2])
             h = {"et0_fao_evapotranspiration": rate if is_day else 0.0,
                  "precipitation_probability": prob, "precipitation": mm,
-                 "is_day": int(is_day), "relative_humidity_2m": 60, "wind_speed_10m": 8}
+                 "is_day": int(is_day), "relative_humidity_2m": 60, "wind_speed_10m": 8,
+                 "weather_code": (codes or {}).get(hr, 2) if day == "2026-09-30" else 2}
             h.update({{"rate": "et0_fao_evapotranspiration", "prob": "precipitation_probability",
                        "mm": "precipitation"}.get(k, k): v
                       for k, v in overrides.get(ts, {}).items()})
@@ -129,6 +132,75 @@ class Verdicts(unittest.TestCase):
         self.assertIsNone(w["out_at"])
 
 
+class Explanations(unittest.TestCase):
+    def test_go_says_how_long(self):
+        self.assertEqual(wash(forecast(rate=0.3))["detail"], "Dry in about 4½ hours")
+
+    def test_wait_explains_the_rain(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}
+        self.assertEqual(wash(forecast(rate=0.3, overrides=rain))["detail"],
+                         "Rain 11:00–13:00, then dry")
+
+    def test_wait_when_rain_has_started(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("10", "11")}
+        self.assertEqual(wash(forecast(rate=0.3, overrides=rain))["detail"],
+                         "Rain likely until 12:00")
+
+    def test_raining_now_says_when_it_clears(self):
+        data = forecast(rate=0.3, raining_now=True, overrides={"2026-09-30T10:00": {"mm": 1.0}})
+        self.assertEqual(wash(data)["detail"], "Should clear by 11:00")
+
+    def test_risky_names_the_risk(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T15:00": {"prob": 80}}))
+        self.assertEqual(w["detail"], "Rain due 15:00, cutting it fine")
+        self.assertEqual(wash(forecast(rate=0.3, prob=30))["detail"], "30% chance of a shower")
+
+    def test_tomorrow_says_why_not_today(self):
+        w = wash(forecast(now="2026-09-30T16:30", rate=0.3))
+        self.assertEqual(w["detail"], "Not enough drying time left today")
+        self.assertEqual(w["when"], "tomorrow")
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
+        w = wash(forecast(now="2026-09-30T12:00", rate=0.3, overrides=rain))
+        self.assertEqual(w["detail"], "Rain from 14:00")
+
+    def test_duration_wording(self):
+        from datetime import timedelta as td
+        self.assertEqual(transform.duration(td(minutes=40)), "under an hour")
+        self.assertEqual(transform.duration(td(minutes=65)), "about 1 hour")
+        self.assertEqual(transform.duration(td(hours=2, minutes=20)), "about 2½ hours")
+
+
+class DaySummary(unittest.TestCase):
+    def today(self, codes):
+        return transform.run(forecast(codes=codes))["today"]
+
+    def test_uses_daylight_not_overnight_weather(self):
+        # Drizzle overnight only: the daily code would say drizzle.
+        codes = {h: 51 for h in range(0, 7)} | {h: 0 for h in range(7, 19)}
+        self.assertEqual(self.today(codes)["text"], "Sunny")
+
+    def test_sky_that_changes_at_midday(self):
+        codes = {h: 3 for h in range(7, 12)} | {h: 0 for h in range(12, 19)}
+        self.assertEqual(self.today(codes)["text"], "Overcast, then sunny")
+
+    def test_afternoon_showers(self):
+        codes = {h: 2 for h in range(7, 15)} | {h: 80 for h in range(15, 19)}
+        t = self.today(codes)
+        self.assertEqual(t["text"], "Partly cloudy, then showers")
+        self.assertEqual(t["icon"], "wi-day-showers")
+
+    def test_a_single_shower_hour_is_ignored(self):
+        codes = {h: 1 for h in range(7, 19)} | {13: 80}
+        self.assertEqual(self.today(codes)["text"], "Mostly sunny")
+
+    def test_wet_all_day(self):
+        self.assertEqual(self.today({h: 63 for h in range(7, 19)})["text"], "Rain")
+
+    def test_rain_chance_is_daytime_only(self):
+        rain = {"2026-09-30T03:00": {"prob": 90}, "2026-09-30T13:00": {"prob": 30}}
+        self.assertEqual(transform.run(forecast(overrides=rain))["today"]["rain"], 30)
+
+
 class Output(unittest.TestCase):
     def test_real_forecast_is_json_serialisable(self):
         data = json.loads((FIXTURES / "sunny_autumn.json").read_text())
@@ -137,6 +209,8 @@ class Output(unittest.TestCase):
         self.assertEqual(out["now"]["wind_dir"], "SW")
         self.assertEqual(out["today"]["sunrise"], "07:02")
         self.assertEqual(out["tomorrow"]["name"], "Tomorrow")
+        # The daily code says drizzle; the daylight hours were dry.
+        self.assertEqual(out["today"]["text"], "Overcast, then sunny")
 
     def test_timeline_marks_the_drying_window(self):
         out = transform.run(forecast(rate=0.3))

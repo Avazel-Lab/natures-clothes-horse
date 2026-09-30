@@ -1,6 +1,6 @@
 <div class="layout">
 {% if error %}
-  <div class="nc" style="justify-content: center; align-items: center;">
+  <div class="nc nc--center">
     <span class="title">Couldn't get the forecast</span>
     <span class="description">{{ error }}</span>
   </div>
@@ -9,7 +9,7 @@
 
     <!-- Now | Today | Tomorrow -->
     <div class="nc-row">
-      <div class="nc-row nc-grow" style="flex-grow: 1.6;">
+      <div class="nc-row nc-now">
         <i class="wi {{ now.icon }} nc-wi nc-now-icon"></i>
         <div class="nc-col">
           <span class="value value--xlarge">{{ now.temp }}°</span>
@@ -23,7 +23,7 @@
         {% if day %}
         <div class="nc-day nc-grow nc-col">
           <span class="label label--underline">{{ day.name }}</span>
-          <div class="nc-row" style="gap: 8px;">
+          <div class="nc-row nc-row--tight">
             <i class="wi {{ day.icon }} nc-wi nc-day-icon"></i>
             <span class="value value--xsmall">{{ day.hi }}° / {{ day.lo }}°</span>
           </div>
@@ -39,13 +39,13 @@
     <div class="nc-wash nc-wash--{{ wash.code }} nc-row">
       <i class="wi {{ wash.icon }} nc-wash-icon"></i>
       <div class="nc-col nc-grow">
-        <span class="value value--xxlarge">{{ wash.headline }}</span>
+        <span class="value value--xlarge nc-nowrap">{{ wash.headline }}</span>
         <span class="title title--large">{{ wash.detail }}</span>
         {% if wash.why %}<span class="label">{{ wash.why | capitalize }}</span>{% endif %}
       </div>
       {% if wash.out_at %}
         <div class="nc-col nc-stat">
-          <span class="label">Out</span>
+          <span class="label">Out{% if wash.when == "tomorrow" %} tomorrow{% endif %}</span>
           <span class="value value--small">{{ wash.out_at }}</span>
         </div>
         <div class="nc-col nc-stat">
@@ -62,7 +62,7 @@
 
     <!-- Drying timeline -->
     <div class="nc-col">
-      <div class="nc-row" style="justify-content: space-between;">
+      <div class="nc-row nc-row--spread">
         <span class="label">{{ chart.day }}: drying strength by hour</span>
         <span class="description">
           <span class="nc-key nc-key--win"></span>washing out
@@ -70,15 +70,7 @@
           <span class="nc-key nc-key--wet"></span>rain likely
         </span>
       </div>
-      <div class="nc-chart">
-        {% for b in chart.bars %}
-          <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}">
-            <span class="nc-bar-prob label label--small">{% if b.prob >= 20 %}{{ b.prob }}%{% endif %}</span>
-            <div class="nc-bar-track"><div class="nc-bar-fill" style="height: {{ b.pct }}%;"></div></div>
-            <span class="nc-bar-hour label">{{ b.label }}</span>
-          </div>
-        {% endfor %}
-      </div>
+      {% render "chart", chart: chart %}
     </div>
 
   </div>

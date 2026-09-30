@@ -7,7 +7,7 @@ polling_verb: get
 framework_version: latest
 serverless_language: python
 refresh_interval_floor:
-polling_url: 'https://api.open-meteo.com/v1/forecast?latitude={{ location | split: '','' | first | strip }}&longitude={{ location | split: '','' | last | strip }}&timezone=auto&forecast_days=2&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,et0_fao_evapotranspiration,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max'
+polling_url: 'https://api.open-meteo.com/v1/forecast?latitude={{ location | split: '','' | first | strip }}&longitude={{ location | split: '','' | last | strip }}&timezone=auto&forecast_days=2&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,et0_fao_evapotranspiration,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max'
 polling_headers:
 polling_body:
 id: 492254

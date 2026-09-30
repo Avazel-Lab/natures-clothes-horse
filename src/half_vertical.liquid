@@ -22,20 +22,13 @@
         </div>
       {% endfor %}
     </div>
-    <div class="nc-wash nc-wash--{{ wash.code }} nc-col" style="justify-content: center;">
+    <div class="nc-wash nc-wash--{{ wash.code }} nc-col nc-col--center">
       <span class="value value--large">{{ wash.headline }}</span>
       <span class="title">{{ wash.detail }}</span>
-      {% if wash.out_at %}<span class="label">Out {{ wash.out_at }}{% if wash.dry_by %} · dry {{ wash.dry_by }}{% endif %} · in by {{ wash.in_by }}</span>{% endif %}
+      <span class="label">{% render "wash_times", wash: wash %}</span>
       {% if wash.why %}<span class="description">{{ wash.why | capitalize }}</span>{% endif %}
     </div>
-    <div class="nc-chart" style="height: 90px;">
-      {% for b in chart.bars %}
-        <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}">
-          <div class="nc-bar-track"><div class="nc-bar-fill" style="height: {{ b.pct }}%;"></div></div>
-          <span class="nc-bar-hour label label--small">{{ b.label }}</span>
-        </div>
-      {% endfor %}
-    </div>
+    {% render "chart", chart: chart, small: true %}
   </div>
 {% endif %}
 </div>

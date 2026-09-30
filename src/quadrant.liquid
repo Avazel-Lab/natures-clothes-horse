@@ -4,14 +4,14 @@
 {% else %}
   <div class="nc">
     <div class="nc-row">
-      <i class="wi {{ now.icon }} nc-wi" style="font-size: 32px; width: 40px;"></i>
+      <i class="wi {{ now.icon }} nc-wi nc-now-icon--small"></i>
       <span class="value value--small">{{ now.temp }}°</span>
       <span class="description nc-grow">{{ now.text }}<br>{{ today.hi }}°/{{ today.lo }}° · tmrw {{ tomorrow.hi }}°/{{ tomorrow.lo }}°</span>
     </div>
-    <div class="nc-wash nc-wash--{{ wash.code }} nc-col" style="justify-content: center; padding: 8px 12px;">
+    <div class="nc-wash nc-wash--compact nc-wash--{{ wash.code }} nc-col nc-col--center">
       <span class="value value--small">{{ wash.headline }}</span>
       <span class="label">{{ wash.detail }}</span>
-      {% if wash.out_at %}<span class="description">Out {{ wash.out_at }}{% if wash.dry_by %} · dry {{ wash.dry_by }}{% endif %} · in {{ wash.in_by }}</span>{% endif %}
+      <span class="description">{% render "wash_times", wash: wash %}</span>
     </div>
   </div>
 {% endif %}

@@ -36,6 +36,13 @@ it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
   or sunset, or with a rain chance of 25% or more along the way. It also
   covers days where the washing gets at least 60% dry.
 
+The verdict explains itself: how long drying will take, when the rain
+arrives or clears, or why today is a write-off.
+
+Today's and tomorrow's conditions and rain chance cover **daylight hours
+only**. Open-Meteo's daily summary is the worst weather in the whole 24 hours,
+so a sunny day after a drizzly night would otherwise read "Light drizzle".
+
 All thresholds are in the tunables block at the top of `src/transform.py`.
 They're first guesses and need calibrating against real washing.
 
@@ -75,6 +82,16 @@ http://localhost:4567/render/full.png?width=1872&height=1404&color_depth=4&scree
 ```sh
 python3 -m unittest discover tests
 ```
+
+## Lint
+
+`trmnlp lint` reports three warnings, all fine for a private plugin:
+
+- The plugin name is over 50 characters (it's the full Ministry name).
+- Too many custom styles. The check counts any CSS property in the markup,
+  including the shared stylesheet in `src/shared.liquid`.
+- `lat_lon` is an unknown field type. TRMNL documents and supports it, but
+  the linter hasn't caught up.
 
 ## Roadmap
 
