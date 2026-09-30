@@ -4,7 +4,7 @@
 {% else %}
   <div class="nc">
     <div class="nc-row">
-      <span class="nc-icon nc-wi nc-now-icon">{{ now.icon }}</span>
+      <span class="nc-icon nc-wi nc-now-icon">{% render "icon", name: now.icon %}</span>
       <div class="nc-col">
         <span class="value value--large">{{ now.temp }}°</span>
         <span class="label">{{ now.text }}</span>
@@ -16,11 +16,11 @@
         {% if forloop.first %}{% assign day = today %}{% else %}{% assign day = tomorrow %}{% endif %}
         <div class="nc-day nc-grow nc-col">
           <span class="label label--underline">{{ day.name }}</span>
-          <span class="value value--xsmall"><span class="nc-icon">{{ day.icon }}</span> {{ day.hi }}°</span>
+          <span class="value value--xsmall"><span class="nc-icon">{% render "icon", name: day.icon %}</span> {{ day.hi }}°</span>
           <span class="description">↓ {{ day.lo }}° {% if forloop.first %}tonight{% else %}night{% endif %}</span>
           <span class="description">{{ day.text }} · {{ day.rain }}%</span>
           <span class="description">{{ day.mow }}</span>
-          <span class="description nc-sun"><span class="nc-icon">{{ icons.sunrise }}</span>{{ day.sunrise }} <span class="nc-icon">{{ icons.sunset }}</span>{{ day.sunset }}</span>
+          <span class="description nc-sun"><span class="nc-icon">{% render "icon", name: "wi-sunrise" %}</span>{{ day.sunrise }} <span class="nc-icon">{% render "icon", name: "wi-sunset" %}</span>{{ day.sunset }}</span>
         </div>
       {% endfor %}
     </div>

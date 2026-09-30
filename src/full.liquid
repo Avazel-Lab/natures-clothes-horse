@@ -10,7 +10,7 @@
     <!-- Now | Today | Tomorrow -->
     <div class="nc-row">
       <div class="nc-row nc-now">
-        <span class="nc-icon nc-wi nc-now-icon">{{ now.icon }}</span>
+        <span class="nc-icon nc-wi nc-now-icon">{% render "icon", name: now.icon %}</span>
         <div class="nc-col">
           <span class="value value--xlarge">{{ now.temp }}°</span>
           <span class="title">{{ now.text }}</span>
@@ -24,13 +24,13 @@
         <div class="nc-day nc-grow nc-col">
           <span class="label label--underline">{{ day.name }}</span>
           <div class="nc-row nc-row--tight">
-            <span class="nc-icon nc-wi nc-day-icon">{{ day.icon }}</span>
+            <span class="nc-icon nc-wi nc-day-icon">{% render "icon", name: day.icon %}</span>
             <span class="value value--xsmall">{{ day.hi }}°</span>
             <span class="label">↓ {{ day.lo }}° {% if forloop.first %}tonight{% else %}night{% endif %}</span>
           </div>
           <span class="description">{{ day.text }}</span>
           <span class="description">Rain {{ day.rain }}% · {{ day.mow }}</span>
-          <span class="description nc-sun"><span class="nc-icon">{{ icons.sunrise }}</span>{{ day.sunrise }} &nbsp;<span class="nc-icon">{{ icons.sunset }}</span>{{ day.sunset }}</span>
+          <span class="description nc-sun"><span class="nc-icon">{% render "icon", name: "wi-sunrise" %}</span>{{ day.sunrise }} &nbsp;<span class="nc-icon">{% render "icon", name: "wi-sunset" %}</span>{{ day.sunset }}</span>
         </div>
         {% endif %}
       {% endfor %}
@@ -39,7 +39,7 @@
     <!-- Washing verdict -->
     <div class="nc-wash nc-wash--{{ wash.code }} nc-col nc-col--center">
       <div class="nc-row nc-row--wide">
-        <span class="nc-icon nc-wash-icon">{{ wash.icon }}</span>
+        <span class="nc-icon nc-wash-icon">{% render "icon", name: wash.icon %}</span>
         <div class="nc-col nc-grow">
           <span class="value value--xlarge nc-nowrap">{{ wash.headline }}</span>
           <span class="title title--large">{{ wash.detail }}</span>

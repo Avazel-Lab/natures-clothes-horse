@@ -256,7 +256,7 @@ class DaySummary(unittest.TestCase):
         codes = {h: 2 for h in range(7, 15)} | {h: 80 for h in range(15, 19)}
         t = self.today(codes)
         self.assertEqual(t["text"], "Partly cloudy, then showers")
-        self.assertEqual(t["icon"], transform.icon_svg("wi-day-showers"))
+        self.assertEqual(t["icon"], "wi-showers")
 
     def test_a_single_shower_hour_is_ignored(self):
         codes = {h: 1 for h in range(7, 19)} | {13: 80}
@@ -534,19 +534,23 @@ class MissingData(unittest.TestCase):
 
 
 class Icons(unittest.TestCase):
-    def test_every_icon_the_plugin_can_show_is_embedded(self):
-        names = {"wi-sunrise", "wi-sunset", "wi-na", *transform.VERDICT_ICON.values()}
+    def test_every_icon_the_plugin_can_show_has_an_svg(self):
+        import re
+        shared = (ROOT / "src" / "shared.liquid").read_text()
+        drawn = set(re.findall(r'{% when "(wi-[a-z0-9-]+)" %}', shared))
+        names = {"wi-sunrise", "wi-sunset", *transform.VERDICT_ICON.values()}
         for _, day, night in transform.WMO.values():
             names |= {day, night}
-        self.assertEqual(names - set(transform.ICONS), set())
+        self.assertEqual(names - drawn, set())
 
     def test_nothing_loads_from_a_cdn(self):
         for template in (ROOT / "src").glob("*.liquid"):
             self.assertNotIn("cdnjs", template.read_text(), template.name)
             self.assertNotIn('class="wi ', template.read_text(), template.name)
 
-    def test_unknown_icon_falls_back(self):
-        self.assertEqual(transform.icon_svg("wi-nonsense"), transform.icon_svg("wi-na"))
+    def test_transform_stays_small(self):
+        # TRMNL rejects a large transform.py (122 KB was refused; ~40 KB is fine).
+        self.assertLess((ROOT / "src" / "transform.py").stat().st_size, 50_000)
 
 
 class Output(unittest.TestCase):

@@ -21,8 +21,9 @@ mashups.
   timeline of hourly drying strength.
 - **Screen:** Liquid templates in `src/` using the TRMNL framework, with
   [Weather Icons](https://erikflowers.github.io/weather-icons/) by Erik
-  Flowers (SIL OFL 1.1), embedded as inline SVG in `src/transform.py` so
-  nothing is loaded from a CDN.
+  Flowers (SIL OFL 1.1): the 20 the plugin uses are embedded as inline SVG
+  in `src/shared.liquid`, so nothing is loaded from a CDN. (Not in
+  `transform.py`: TRMNL rejects a transform that large.)
 
 ### The drying model
 
