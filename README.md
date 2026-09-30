@@ -74,7 +74,11 @@ Each hour:
   most when the line is within one or two obstruction-heights and the wind
   blows straight over it.
 
-The line is taken as 1.3 m high (the middle of the hanging washing). Shade
+The washing is treated as a band from 1.2 m to 2.0 m: a line about 6.5 ft
+up (the typical 5.5-7.5 ft range) with items hanging about 0.8 m below it.
+An obstruction shades only the part of the band below its shadow, and
+shelters only the part below its top, so a 1.8 m fence never covers the top
+of the washing and only shades the lower part when the sun is low. Shade
 timing should be good to roughly half an hour; wind shelter is a rough
 estimate, to be tuned with real drying times.
 

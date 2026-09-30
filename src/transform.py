@@ -83,7 +83,10 @@ OBSTRUCTION_TYPES = {
     "house3":   {"name": "house",    "profile": [(7.8, 0), (11.0, 4)], "half_width": None,  "shade": 1.0, "wind": 1.0},
     "tree":     {"name": "tree",     "profile": [(10.0, 0)],           "half_width": 3.0,  "shade": 0.7, "wind": 0.5},
 }
-LINE_HEIGHT = 1.3   # m, middle of the hanging washing
+# The washing is a band hanging from the line: the line itself is typically
+# 5.5-7.5 ft up (take 2.0 m), and items hang about 0.8 m below it on average.
+WASHING_TOP = 2.0     # m
+WASHING_BOTTOM = 1.2  # m
 DEFAULT_DISTANCE = 4
 
 # Wind reduction behind a solid obstruction, by distance in obstruction
@@ -185,23 +188,33 @@ def _facing(ob, az):
     return c
 
 
-def horizon(ob, az):
-    """How high (degrees) the obstruction reaches above the line towards `az`."""
+def band_below(height):
+    """Share of the washing band that's below `height`."""
+    return min(max((height - WASHING_BOTTOM) / (WASHING_TOP - WASHING_BOTTOM), 0.0), 1.0)
+
+
+def shadow_height(ob, elev, az):
+    """How high up the washing the obstruction's shadow reaches (m), with
+    the sun at this elevation and azimuth. 0 if it doesn't shade at all."""
     c = _facing(ob, az)
     if not c:
         return 0.0
-    return max(math.degrees(math.atan2(h - LINE_HEIGHT, (ob["distance"] + extra) / c))
-               for h, extra in ob["profile"])
+    rise = math.tan(math.radians(elev))
+    return max(0.0, max(h - (ob["distance"] + extra) / c * rise for h, extra in ob["profile"]))
 
 
 def shading(elev, az, garden):
-    """(share of direct sun blocked, name of what's blocking it)."""
+    """(share of direct sun on the washing blocked, name of what's blocking it).
+
+    Obstructions can overlap, so take the one covering most, not the sum.
+    """
     if elev <= 0:
         return 1.0, None
     blocked, name = 0.0, None
     for ob in garden["obstructions"]:
-        if elev < horizon(ob, az) and ob["shade"] > blocked:
-            blocked, name = ob["shade"], ob["name"]
+        share = band_below(shadow_height(ob, elev, az)) * ob["shade"]
+        if share > blocked:
+            blocked, name = share, ob["name"]
     return blocked, name
 
 
@@ -218,13 +231,15 @@ def wind_factor(from_deg, garden):
         c = _facing(ob, from_deg)
         if not c:
             continue
-        x = ob["distance"] / max(h for h, _ in ob["profile"])
+        top = max(h for h, _ in ob["profile"])
+        x = ob["distance"] / top
         reduction = 0.0
         for (x0, r0), (x1, r1) in zip(WAKE, WAKE[1:]):
             if x <= x1:
                 reduction = r0 + (r1 - r0) * (x - x0) / (x1 - x0)
                 break
-        factor *= 1 - reduction * c * ob["wind"]
+        # Washing above the obstruction's top catches the wind over it.
+        factor *= 1 - reduction * c * ob["wind"] * band_below(top)
     return factor
 
 

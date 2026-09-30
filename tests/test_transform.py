@@ -249,7 +249,7 @@ class NightLows(unittest.TestCase):
 
 # The house to the north-west of the line, 4 m away (a south-east facing
 # garden), plus a 6 ft fence 2 m to the south-west.
-HOUSE_NW = {"obstruction_1_type": "house3", "obstruction_1_direction": "nw",
+HOUSE_NW = {"obstruction_1_type": "house2", "obstruction_1_direction": "nw",
             "obstruction_1_distance": "4"}
 WITH_FENCE = dict(HOUSE_NW, obstruction_2_type="fence", obstruction_2_direction="sw",
                   obstruction_2_distance="2")
@@ -274,9 +274,10 @@ class Garden(unittest.TestCase):
         by_label = garden({"obstruction_1_type": "House, 3 storeys (~11 m to ridge)",
                            "obstruction_1_direction": "North-west",
                            "obstruction_1_distance": "4 m"})
-        self.assertEqual(by_value, by_label)
+        self.assertEqual(garden(dict(HOUSE_NW, obstruction_1_type="house3")), by_label)
         ob = by_value["obstructions"][0]
         self.assertEqual((ob["azimuth"], ob["name"], ob["distance"]), (315, "house", 4))
+        self.assertEqual(ob["profile"], [(5.3, 0), (8.5, 4)])
 
     def test_every_type_label_is_recognised(self):
         labels = {"Fence or wall (~1.8 m)": "fence", "Tall hedge (~3 m)": "hedge",
@@ -287,7 +288,7 @@ class Garden(unittest.TestCase):
             self.assertEqual(transform.obstruction_type(label), key, label)
 
     def test_older_single_house_settings_still_work(self):
-        old = garden({"garden_faces": "se", "house_height": "3", "line_distance": "4"})
+        old = garden({"garden_faces": "se", "house_height": "2", "line_distance": "4"})
         self.assertEqual(old, garden(HOUSE_NW))
 
     def test_nothing_set_means_no_adjustment(self):
@@ -301,27 +302,31 @@ class Garden(unittest.TestCase):
         self.assertAlmostEqual(elev, 36.4, delta=0.5)
         self.assertAlmostEqual(az, 180, delta=2)
 
-    def test_house_horizon(self):
+    def test_shadow_height_on_the_washing(self):
         house = garden(HOUSE_NW)["obstructions"][0]
-        # Straight at it, the eaves (7.8 m, 4 m away) top the ridge (11 m,
-        # 8 m away): atan((7.8 - 1.3) / 4) ~ 58 deg.
-        self.assertAlmostEqual(transform.horizon(house, 315), 58.4, delta=0.5)
-        self.assertEqual(transform.horizon(house, 135), 0)          # behind the line
-        self.assertAlmostEqual(transform.horizon(house, 250), 34.5, delta=0.5)  # obliquely: lower
+        # Sun at 20 deg straight over the house: the ridge (8.5 m, 8 m away)
+        # shadows up to 8.5 - 8 * tan(20) = 5.6 m, over the whole washing.
+        self.assertAlmostEqual(transform.shadow_height(house, 20, 315), 5.59, delta=0.02)
+        # High sun: the shadow falls short of the line.
+        self.assertAlmostEqual(transform.shadow_height(house, 50, 315), 0.53, delta=0.02)
+        self.assertEqual(transform.shadow_height(house, 20, 135), 0)       # behind the line
 
     def test_narrow_things_only_block_nearby_directions(self):
         shed = garden({"obstruction_1_type": "shed", "obstruction_1_direction": "w",
                        "obstruction_1_distance": "2"})["obstructions"][0]
-        self.assertGreater(transform.horizon(shed, 270), 0)
-        self.assertEqual(transform.horizon(shed, 225), 0)           # past its side
+        self.assertGreater(transform.shadow_height(shed, 5, 270), 2.0)
+        self.assertEqual(transform.shadow_height(shed, 5, 225), 0)         # past its side
 
-    def test_shading(self):
+    def test_shading_covers_part_of_the_washing(self):
         g = garden(WITH_FENCE)
-        self.assertEqual(transform.shading(30, 180, g), (0.0, None))    # sun to the south
+        self.assertEqual(transform.shading(30, 180, g), (0.0, None))       # sun to the south
         self.assertEqual(transform.shading(20, 300, g), (1.0, "house"))
-        # 1.8 m fence 2 m away: blocks the sky up to atan(0.5 / 2) = 14 deg.
-        self.assertEqual(transform.shading(10, 225, g), (1.0, "fence"))
-        self.assertEqual(transform.shading(15, 225, g), (0.0, None))
+        # A 1.8 m fence 2 m away never covers the top of the washing (2.0 m):
+        # low sun shades the lower part only.
+        blocked, name = transform.shading(3, 225, g)
+        self.assertEqual(name, "fence")
+        self.assertAlmostEqual(blocked, 0.62, delta=0.02)
+        self.assertAlmostEqual(transform.shading(10, 225, g)[0], 0.31, delta=0.02)
         tree = garden({"obstruction_1_type": "tree", "obstruction_1_direction": "s",
                        "obstruction_1_distance": "6"})
         self.assertEqual(transform.shading(30, 180, tree), (0.7, "tree"))
@@ -330,8 +335,9 @@ class Garden(unittest.TestCase):
         g = garden(HOUSE_NW)
         self.assertAlmostEqual(transform.wind_factor(315, g), 0.4, delta=0.01)   # NW: over the house
         self.assertEqual(transform.wind_factor(135, g), 1.0)                    # SE: open side
+        # SW over the 1.8 m fence: only the washing below its top is sheltered.
         both = garden(WITH_FENCE)
-        self.assertLess(transform.wind_factor(225, both), 0.6)                  # SW: over the fence
+        self.assertAlmostEqual(transform.wind_factor(225, both), 0.65, delta=0.01)
         sheltered = garden(dict(HOUSE_NW, shelter="sheltered"))
         self.assertAlmostEqual(transform.wind_factor(135, sheltered), 0.7)
 
