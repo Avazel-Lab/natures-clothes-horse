@@ -19,6 +19,7 @@
           <span class="value value--xsmall"><i class="wi {{ day.icon }}"></i> {{ day.hi }}°</span>
           <span class="description">↓ {{ day.lo }}° {% if forloop.first %}tonight{% else %}night{% endif %}</span>
           <span class="description">{{ day.text }} · {{ day.rain }}%</span>
+          <span class="description">{{ day.mow }}</span>
           <span class="description nc-sun"><i class="wi wi-sunrise"></i>{{ day.sunrise }} <i class="wi wi-sunset"></i>{{ day.sunset }}</span>
         </div>
       {% endfor %}

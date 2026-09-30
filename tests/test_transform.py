@@ -271,12 +271,20 @@ def garden(fields):
 class Garden(unittest.TestCase):
     def test_settings_accept_values_or_labels(self):
         by_value = garden(HOUSE_NW)
-        by_label = garden({"obstruction_1_type": "House, 2 storeys + loft or 3 storeys",
+        by_label = garden({"obstruction_1_type": "House, 3 storeys (~11 m to ridge)",
                            "obstruction_1_direction": "North-west",
                            "obstruction_1_distance": "4 m"})
         self.assertEqual(by_value, by_label)
         ob = by_value["obstructions"][0]
         self.assertEqual((ob["azimuth"], ob["name"], ob["distance"]), (315, "house", 4))
+
+    def test_every_type_label_is_recognised(self):
+        labels = {"Fence or wall (~1.8 m)": "fence", "Tall hedge (~3 m)": "hedge",
+                  "Shed or garage (~2.5 m)": "shed", "Bungalow, 1 storey (~5.5 m to ridge)": "bungalow",
+                  "House, 2 storeys (~8.5 m to ridge)": "house2",
+                  "House, 3 storeys (~11 m to ridge)": "house3", "Tree (~10 m)": "tree", "None": None}
+        for label, key in labels.items():
+            self.assertEqual(transform.obstruction_type(label), key, label)
 
     def test_older_single_house_settings_still_work(self):
         old = garden({"garden_faces": "se", "house_height": "3", "line_distance": "4"})
@@ -353,6 +361,52 @@ class Garden(unittest.TestCase):
         self.assertRegex(out["wash"]["why"], r"house shade from 1[56]:\d\d")
         self.assertEqual(out["garden"], "NW house 4 m, SW fence 2 m")
         self.assertIsNone(transform.run(reading())["garden"])
+
+
+class Mowing(unittest.TestCase):
+    def mow(self, **kw):
+        return transform.run(forecast(**kw))
+
+    def test_dry_day_mows_from_now_until_an_hour_before_sunset(self):
+        out = self.mow(rate=0.3)
+        self.assertEqual(out["today"]["mow"], "Mow 10:00–18:00")
+        self.assertEqual(out["tomorrow"]["mow"], "Mow 07:00–18:00")
+
+    def test_dew_after_a_humid_night(self):
+        night = {f"2026-10-01T{h:02d}:00": {"relative_humidity_2m": 95} for h in range(0, 7)}
+        # 0.3 mm of dew at 0.3 mm/h: dry after the first hour of daylight.
+        self.assertEqual(self.mow(rate=0.3, overrides=night)["tomorrow"]["mow"], "Mow 08:00–18:00")
+
+    def test_heavy_morning_rain_delays_mowing(self):
+        rain = {f"2026-09-30T{h}:00": {"mm": 5.0} for h in ("09", "10")}
+        # 0.4 + 0.15 * 5 = 1.15 mm to dry at 0.3 mm/h: dry after 4 hours.
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Mow 15:00–18:00")
+
+    def test_wet_all_day(self):
+        self.assertEqual(self.mow(rate=0.3, prob=80)["today"]["mow"], "Too wet to mow")
+
+    def test_short_gap_isnt_a_window(self):
+        rain = {f"2026-09-30T{h}:00": {"mm": 1.0} for h in ("11", "14", "17")}
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Too wet to mow")
+
+    def test_too_late_today(self):
+        self.assertEqual(self.mow(now="2026-09-30T18:30", rate=0.3)["today"]["mow"], "Too late to mow")
+
+    def test_window_starts_on_a_quarter_hour(self):
+        self.assertEqual(self.mow(now="2026-09-30T13:05", rate=0.3)["today"]["mow"], "Mow 13:15–18:00")
+
+
+class PastDay(unittest.TestCase):
+    def test_yesterday_in_the_daily_data_is_skipped(self):
+        data = forecast()
+        daily = data["daily"]
+        for key in daily:
+            daily[key].insert(0, "2026-09-29" if key == "time" else
+                              "2026-09-29T07:00" if key == "sunrise" else
+                              "2026-09-29T19:00" if key == "sunset" else 99)
+        out = transform.run(data)
+        self.assertEqual((out["today"]["name"], out["today"]["hi"]), ("Today", 19))
+        self.assertEqual(out["tomorrow"]["hi"], 18)
 
 
 class Output(unittest.TestCase):

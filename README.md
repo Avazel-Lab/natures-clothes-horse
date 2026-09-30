@@ -61,7 +61,7 @@ distance. **General exposure** tweaks wind for everything else.
 | Fence or wall | 1.8 m, runs right across, fairly solid to wind |
 | Tall hedge | 3 m, runs right across, lets some sun and wind through |
 | Shed or garage | 2.5 m, 3 m wide |
-| Bungalow / house | eaves plus a ridge set back 4 m (5.5, 8.5 or 11 m); runs right across, since neighbours usually continue the building line |
+| Bungalow / house | eaves plus a ridge set back 4 m (ridge 5.5, 8.5 or 11 m); runs right across, since neighbours usually continue the building line |
 | Tree | 10 m, 6 m wide, blocks 70% of direct sun and half as much wind as a wall |
 
 Each hour:
@@ -81,6 +81,17 @@ estimate, to be tuned with real drying times.
 With no obstructions and open exposure, there's no adjustment. The title bar
 shows what's in use (e.g. "NW house 4 m, SW fence 2 m"), or "Garden settings
 not applied" if TRMNL didn't pass the settings to the transform.
+
+### Mowing window
+
+Each day box shows the longest spell (at least 2 hours) when the lawn should
+be dry enough to mow, e.g. "Mow 11:00–17:30", or "Too wet to mow". The lawn
+holds some water that open-ground drying has to clear: any rain leaves 0.4 mm
+plus 0.15 mm per mm of rain (soggy ground takes longer), capped at 2.5 mm, and
+a humid night (RH ≥ 90%) leaves 0.3 mm of dew. Mowing stops an hour before
+sunset. It assumes a typical lawn (a few cm long); the numbers are in the
+Mowing block of `src/transform.py`. The forecast includes the previous day so
+yesterday's rain counts.
 
 All thresholds are in the tunables block at the top of `src/transform.py`.
 They're first guesses and need calibrating against real washing.

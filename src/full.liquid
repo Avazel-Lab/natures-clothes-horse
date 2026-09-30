@@ -15,7 +15,7 @@
           <span class="value value--xlarge">{{ now.temp }}°</span>
           <span class="title">{{ now.text }}</span>
           <span class="label">Feels {{ now.feels }}° · {{ now.humidity }}% humidity</span>
-          <span class="label">Wind {{ now.wind_dir }} {{ now.wind }} mph, gusts {{ now.gust }}</span>
+          <span class="label">Wind {{ now.wind_dir }} {{ now.wind }} mph, gusts {{ now.gust }} mph</span>
         </div>
       </div>
       {% for d in (1..2) %}
@@ -29,7 +29,7 @@
             <span class="label">↓ {{ day.lo }}° {% if forloop.first %}tonight{% else %}night{% endif %}</span>
           </div>
           <span class="description">{{ day.text }}</span>
-          <span class="description">Rain {{ day.rain }}%</span>
+          <span class="description">Rain {{ day.rain }}% · {{ day.mow }}</span>
           <span class="description nc-sun"><i class="wi wi-sunrise"></i>{{ day.sunrise }} &nbsp;<i class="wi wi-sunset"></i>{{ day.sunset }}</span>
         </div>
         {% endif %}
@@ -57,8 +57,7 @@
           {% for l in wash.loads %}
             <div class="nc-col nc-stat">
               <span class="label">{{ l.name }} dry</span>
-              <span class="value value--small">{% if l.dry_by %}{{ l.dry_by }}{% else %}–{% endif %}</span>
-              {% unless l.dry_by %}<span class="description">won't dry</span>{% endunless %}
+              <span class="value value--small">{% if l.dry_by %}{{ l.dry_by }}{% else %}Won't dry{% endif %}</span>
             </div>
           {% endfor %}
           <div class="nc-stats-rule"></div>

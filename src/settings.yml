@@ -7,7 +7,7 @@ polling_verb: get
 framework_version: latest
 serverless_language: python
 refresh_interval_floor:
-polling_url: 'https://api.open-meteo.com/v1/forecast?latitude={{ location | split: '','' | first | strip }}&longitude={{ location | split: '','' | last | strip }}&timezone=auto&forecast_days=3&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max'
+polling_url: 'https://api.open-meteo.com/v1/forecast?latitude={{ location | split: '','' | first | strip }}&longitude={{ location | split: '','' | last | strip }}&timezone=auto&past_days=1&forecast_days=3&wind_speed_unit=mph&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max'
 polling_headers:
 polling_body:
 id: 492254
@@ -42,18 +42,18 @@ custom_fields:
   - None: none
   - Fence or wall (~1.8 m): fence
   - Tall hedge (~3 m): hedge
-  - Shed or garage: shed
-  - Bungalow: bungalow
-  - House, 2 storeys: house2
-  - House, 2 storeys + loft or 3 storeys: house3
-  - Tree: tree
+  - Shed or garage (~2.5 m): shed
+  - Bungalow, 1 storey (~5.5 m to ridge): bungalow
+  - House, 2 storeys (~8.5 m to ridge): house2
+  - House, 3 storeys (~11 m to ridge): house3
+  - Tree (~10 m): tree
   default: none
 - keyname: obstruction_1_direction
   field_type: select
   name: Obstruction 1 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
-  - North: n
+  - North: "n"
   - North-east: ne
   - East: e
   - South-east: se
@@ -69,8 +69,11 @@ custom_fields:
   options:
   - 1 m: '1'
   - 2 m: '2'
+  - 3 m: '3'
   - 4 m: '4'
+  - 5 m: '5'
   - 6 m: '6'
+  - 8 m: '8'
   - 10 m: '10'
   - 15 m: '15'
   - 25 m or more: '25'
@@ -82,18 +85,18 @@ custom_fields:
   - None: none
   - Fence or wall (~1.8 m): fence
   - Tall hedge (~3 m): hedge
-  - Shed or garage: shed
-  - Bungalow: bungalow
-  - House, 2 storeys: house2
-  - House, 2 storeys + loft or 3 storeys: house3
-  - Tree: tree
+  - Shed or garage (~2.5 m): shed
+  - Bungalow, 1 storey (~5.5 m to ridge): bungalow
+  - House, 2 storeys (~8.5 m to ridge): house2
+  - House, 3 storeys (~11 m to ridge): house3
+  - Tree (~10 m): tree
   default: none
 - keyname: obstruction_2_direction
   field_type: select
   name: Obstruction 2 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
-  - North: n
+  - North: "n"
   - North-east: ne
   - East: e
   - South-east: se
@@ -109,8 +112,11 @@ custom_fields:
   options:
   - 1 m: '1'
   - 2 m: '2'
+  - 3 m: '3'
   - 4 m: '4'
+  - 5 m: '5'
   - 6 m: '6'
+  - 8 m: '8'
   - 10 m: '10'
   - 15 m: '15'
   - 25 m or more: '25'
@@ -122,18 +128,18 @@ custom_fields:
   - None: none
   - Fence or wall (~1.8 m): fence
   - Tall hedge (~3 m): hedge
-  - Shed or garage: shed
-  - Bungalow: bungalow
-  - House, 2 storeys: house2
-  - House, 2 storeys + loft or 3 storeys: house3
-  - Tree: tree
+  - Shed or garage (~2.5 m): shed
+  - Bungalow, 1 storey (~5.5 m to ridge): bungalow
+  - House, 2 storeys (~8.5 m to ridge): house2
+  - House, 3 storeys (~11 m to ridge): house3
+  - Tree (~10 m): tree
   default: none
 - keyname: obstruction_3_direction
   field_type: select
   name: Obstruction 3 direction
   description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
   options:
-  - North: n
+  - North: "n"
   - North-east: ne
   - East: e
   - South-east: se
@@ -149,8 +155,11 @@ custom_fields:
   options:
   - 1 m: '1'
   - 2 m: '2'
+  - 3 m: '3'
   - 4 m: '4'
+  - 5 m: '5'
   - 6 m: '6'
+  - 8 m: '8'
   - 10 m: '10'
   - 15 m: '15'
   - 25 m or more: '25'

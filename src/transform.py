@@ -102,7 +102,7 @@ def obstruction_type(label):
     for words, key in ((("fence", "wall"), "fence"), (("hedge",), "hedge"),
                        (("shed", "garage"), "shed"), (("tree",), "tree"),
                        (("bungalow", "1 storey"), "bungalow"),
-                       (("loft", "3 storey", "3-storey"), "house3"),
+                       (("loft", "3 storey", "3-storey", "11 m"), "house3"),
                        (("house", "storey"), "house2")):
         if any(w in t for w in words):
             return key
@@ -338,6 +338,12 @@ def hhmm(dt):
     return dt.strftime("%H:%M")
 
 
+def quarter(dt, up=False):
+    """Round to a quarter hour, down (or up)."""
+    q = dt.replace(minute=dt.minute // 15 * 15, second=0, microsecond=0)
+    return q + timedelta(minutes=15) if up and q < dt else q
+
+
 def rnd(x):
     return int(round(x))
 
@@ -399,19 +405,24 @@ def build_hours(data, garden=None):
         shade = 0.0
 
         if own_et0:
+            t, h = mid(temp, i, j), mid(rh, i, j)
+            elev, _ = sun_position(start + timedelta(minutes=30), *geo)
+            # Open ground (the lawn), then the line with the garden applied.
+            open_rate = et0_hourly(t, h, wind_mph * MPH * U10_TO_U2, sw[i] or 0, elev, z)
+            rate = open_rate
             if garden:
                 shade = shade_fraction(start, end, geo, garden)
                 if wdir[i] is not None:
                     wind_mph *= wind_factor(wdir[i], garden)
-            rs = (sw[i] or 0) - (direct[i] or 0) * shade
-            elev, _ = sun_position(start + timedelta(minutes=30), *geo)
-            rate = et0_hourly(mid(temp, i, j), mid(rh, i, j), wind_mph * MPH * U10_TO_U2, rs, elev, z)
+                rs = (sw[i] or 0) - (direct[i] or 0) * shade
+                rate = et0_hourly(t, h, wind_mph * MPH * U10_TO_U2, rs, elev, z)
         else:
-            rate = col("et0_fao_evapotranspiration")[i] or 0
+            rate = open_rate = col("et0_fao_evapotranspiration")[i] or 0
 
         hours.append({
             "start": start,
             "rate": rate,
+            "open_rate": open_rate,
             "prob": prob,
             "mm": mm,
             "day": bool(is_day[j] or is_day[i]),
@@ -475,6 +486,53 @@ def day_summary(hours, rise, sset, fallback_code):
     if len(wet) >= 3:
         icon = describe(wet_code)[1]
     return text, icon
+
+
+# ---- Mowing ---------------------------------------------------------------
+# The lawn is "wet" with some amount of water (mm-ish) that evaporation has
+# to clear before it's worth mowing. Rain soaks it (more rain, softer ground,
+# longer to recover); humid nights add dew. Open-ground ET0 dries it.
+MOW_RAIN_BASE = 0.4     # water left by any rain, mm of ET0 to clear
+MOW_RAIN_PER_MM = 0.15  # extra per mm of rain (soggy ground)
+MOW_RAIN_MAX = 2.5      # cap: a very wet day takes the next day to recover
+MOW_DEW = 0.3           # dew on a humid night
+MOW_DEW_RH = 90         # % RH at night that means dew
+MOW_RAIN_PROB = 50      # % chance that counts as rain for the lawn
+MOW_MIN = timedelta(hours=2)          # shortest window worth showing
+MOW_STOP_BEFORE_SUNSET = timedelta(hours=1)  # evening dew, and light
+
+
+def mow_window(hours, rise, sset, after):
+    """Longest spell on this day when the grass is dry enough to mow.
+
+    Returns (start, end) or None. Spells before `after` are ignored.
+    """
+    water = MOW_DEW
+    best, cur = None, None
+    stop = sset - MOW_STOP_BEFORE_SUNSET
+    for h in hours:
+        if h["start"] >= stop:
+            break
+        rained = h["mm"] >= 0.1 or h["prob"] >= MOW_RAIN_PROB
+        dry_at_start = water <= 0
+        if rained:
+            water = max(water, min(MOW_RAIN_BASE + MOW_RAIN_PER_MM * h["mm"], MOW_RAIN_MAX))
+        elif not h["day"] and (h["rh"] or 0) >= MOW_DEW_RH:
+            water = max(water, MOW_DEW)
+        elif h["day"]:
+            water = max(0.0, water - h["open_rate"])
+
+        mowable = (not rained and dry_at_start and h["day"]
+                   and h["start"] >= rise.replace(minute=0) and h["start"] + timedelta(hours=1) > after)
+        if mowable:
+            cur = (cur[0], h["start"] + timedelta(hours=1)) if cur else (max(h["start"], after), h["start"] + timedelta(hours=1))
+            if not best or cur[1] - cur[0] > best[1] - best[0]:
+                best = cur
+        else:
+            cur = None
+    if best:
+        best = (best[0], min(best[1], stop))
+    return best if best and best[1] - best[0] >= MOW_MIN else None
 
 
 def night_low(hours, after, until):
@@ -763,7 +821,8 @@ def run(input):
     daily = input["daily"]
 
     days = []
-    for i in range(min(2, len(daily["time"]))):
+    first = next((k for k, d in enumerate(daily["time"]) if parse(d).date() == now.date()), 0)
+    for i in range(first, min(first + 2, len(daily["time"]))):
         date = parse(daily["time"][i]).date()
         rise, sset = suns[date]
         # "lo" is the coming night's low (sunset to next sunrise), which is
@@ -775,8 +834,15 @@ def run(input):
         text, icon = day_summary(hours, rise, sset, daily["weather_code"][i])
         day_probs = [h["prob"] for h in daylight(hours, rise, sset)]
         rain = max(day_probs) if day_probs else daily["precipitation_probability_max"][i] or 0
+        mow = mow_window(hours, rise, sset, max(now, rise))
+        if mow:
+            mow_text = f"Mow {hhmm(quarter(mow[0], up=True))}–{hhmm(quarter(mow[1]))}"
+        elif now >= sset - MOW_STOP_BEFORE_SUNSET:
+            mow_text = "Too late to mow"
+        else:
+            mow_text = "Too wet to mow"
         days.append({
-            "name": "Today" if i == 0 else "Tomorrow",
+            "name": "Today" if i == first else "Tomorrow",
             "text": text,
             "icon": icon,
             "hi": rnd(daily["temperature_2m_max"][i]),
@@ -784,6 +850,7 @@ def run(input):
             "rain": rnd(rain),
             "sunrise": hhmm(rise),
             "sunset": hhmm(sset),
+            "mow": mow_text,
         })
 
     raining_now = (cur.get("precipitation") or 0) > 0
