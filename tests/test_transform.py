@@ -247,7 +247,12 @@ class NightLows(unittest.TestCase):
         self.assertEqual(out["tomorrow"]["lo"], 13)  # daily min for 1 Oct (13.1)
 
 
-SE_GARDEN = {"garden_faces": "se", "house_height": "3", "line_distance": "4", "shelter": "open"}
+# The house to the north-west of the line, 4 m away (a south-east facing
+# garden), plus a 6 ft fence 2 m to the south-west.
+HOUSE_NW = {"obstruction_1_type": "house3", "obstruction_1_direction": "nw",
+            "obstruction_1_distance": "4"}
+WITH_FENCE = dict(HOUSE_NW, obstruction_2_type="fence", obstruction_2_direction="sw",
+                  obstruction_2_distance="2")
 
 
 def with_garden(data, fields):
@@ -259,19 +264,28 @@ def reading():
     return json.loads((FIXTURES / "reading_full.json").read_text())
 
 
+def garden(fields):
+    return transform.parse_garden(fields)
+
+
 class Garden(unittest.TestCase):
     def test_settings_accept_values_or_labels(self):
-        by_value = transform.parse_garden(SE_GARDEN)
-        by_label = transform.parse_garden({"garden_faces": "South-east",
-                                           "house_height": "2 storeys + loft or 3 storeys",
-                                           "line_distance": "4 m", "shelter": "Open"})
+        by_value = garden(HOUSE_NW)
+        by_label = garden({"obstruction_1_type": "House, 2 storeys + loft or 3 storeys",
+                           "obstruction_1_direction": "North-west",
+                           "obstruction_1_distance": "4 m"})
         self.assertEqual(by_value, by_label)
-        self.assertEqual(by_value["azimuth"], 135)
-        self.assertEqual(by_value["ridge"], 11.0)
+        ob = by_value["obstructions"][0]
+        self.assertEqual((ob["azimuth"], ob["name"], ob["distance"]), (315, "house", 4))
 
-    def test_no_house_means_no_adjustment(self):
-        self.assertIsNone(transform.parse_garden({"garden_faces": "none"}))
-        self.assertIsNone(transform.parse_garden({}))
+    def test_older_single_house_settings_still_work(self):
+        old = garden({"garden_faces": "se", "house_height": "3", "line_distance": "4"})
+        self.assertEqual(old, garden(HOUSE_NW))
+
+    def test_nothing_set_means_no_adjustment(self):
+        self.assertIsNone(garden({}))
+        self.assertIsNone(garden({"obstruction_1_type": "none", "obstruction_1_direction": "n"}))
+        self.assertEqual(garden({"shelter": "some"}), {"obstructions": [], "exposure": 0.85})
 
     def test_sun_position_at_solar_noon(self):
         # Alton, 30 Sep: sun due south at about 36 degrees, near 12:55 BST.
@@ -279,22 +293,39 @@ class Garden(unittest.TestCase):
         self.assertAlmostEqual(elev, 36.4, delta=0.5)
         self.assertAlmostEqual(az, 180, delta=2)
 
-    def test_shade_geometry(self):
-        g = transform.parse_garden(SE_GARDEN)
-        self.assertFalse(transform.line_shaded(30, 180, g))   # sun in front of the house
-        self.assertTrue(transform.line_shaded(10, 300, g))    # low, behind it
-        self.assertFalse(transform.line_shaded(50, 250, g))   # behind but high: shadow too short
-        self.assertTrue(transform.line_shaded(25, 300, g))
-        far = dict(g, distance=40)  # 11 m house, sun at 25 deg: ~15 m shadow
-        self.assertFalse(transform.line_shaded(25, 300, far))
+    def test_house_horizon(self):
+        house = garden(HOUSE_NW)["obstructions"][0]
+        # Straight at it, the eaves (7.8 m, 4 m away) top the ridge (11 m,
+        # 8 m away): atan((7.8 - 1.3) / 4) ~ 58 deg.
+        self.assertAlmostEqual(transform.horizon(house, 315), 58.4, delta=0.5)
+        self.assertEqual(transform.horizon(house, 135), 0)          # behind the line
+        self.assertAlmostEqual(transform.horizon(house, 250), 34.5, delta=0.5)  # obliquely: lower
 
-    def test_wind_over_the_house_is_cut(self):
-        g = transform.parse_garden(SE_GARDEN)
-        self.assertAlmostEqual(transform.wind_factor(315, g), 0.4, delta=0.01)       # NW: straight over
-        self.assertAlmostEqual(transform.wind_factor(225, g), 1.0, delta=0.01)       # SW: along the wall
-        self.assertEqual(transform.wind_factor(135, g), 1.0)                        # SE: open side
-        enclosed = transform.parse_garden(dict(SE_GARDEN, shelter="enclosed"))
-        self.assertAlmostEqual(transform.wind_factor(135, enclosed), 0.7)
+    def test_narrow_things_only_block_nearby_directions(self):
+        shed = garden({"obstruction_1_type": "shed", "obstruction_1_direction": "w",
+                       "obstruction_1_distance": "2"})["obstructions"][0]
+        self.assertGreater(transform.horizon(shed, 270), 0)
+        self.assertEqual(transform.horizon(shed, 225), 0)           # past its side
+
+    def test_shading(self):
+        g = garden(WITH_FENCE)
+        self.assertEqual(transform.shading(30, 180, g), (0.0, None))    # sun to the south
+        self.assertEqual(transform.shading(20, 300, g), (1.0, "house"))
+        # 1.8 m fence 2 m away: blocks the sky up to atan(0.5 / 2) = 14 deg.
+        self.assertEqual(transform.shading(10, 225, g), (1.0, "fence"))
+        self.assertEqual(transform.shading(15, 225, g), (0.0, None))
+        tree = garden({"obstruction_1_type": "tree", "obstruction_1_direction": "s",
+                       "obstruction_1_distance": "6"})
+        self.assertEqual(transform.shading(30, 180, tree), (0.7, "tree"))
+
+    def test_wind_over_obstructions_is_cut(self):
+        g = garden(HOUSE_NW)
+        self.assertAlmostEqual(transform.wind_factor(315, g), 0.4, delta=0.01)   # NW: over the house
+        self.assertEqual(transform.wind_factor(135, g), 1.0)                    # SE: open side
+        both = garden(WITH_FENCE)
+        self.assertLess(transform.wind_factor(225, both), 0.6)                  # SW: over the fence
+        sheltered = garden(dict(HOUSE_NW, shelter="sheltered"))
+        self.assertAlmostEqual(transform.wind_factor(135, sheltered), 0.7)
 
     def test_own_et0_matches_open_meteo(self):
         data = reading()
@@ -312,17 +343,15 @@ class Garden(unittest.TestCase):
 
     def test_shade_and_shelter_slow_drying(self):
         data = reading()
-        # Make it a north-westerly all day, straight over the house.
         data["hourly"]["wind_direction_10m"] = [315] * len(data["hourly"]["time"])
         open_rate = sum(h["rate"] for h in transform.build_hours(data) if h["day"])
-        g = transform.parse_garden(SE_GARDEN)
-        garden_rate = sum(h["rate"] for h in transform.build_hours(data, g) if h["day"])
+        garden_rate = sum(h["rate"] for h in transform.build_hours(data, garden(WITH_FENCE)) if h["day"])
         self.assertLess(garden_rate, open_rate * 0.95)
 
-    def test_verdict_mentions_shade_and_title_shows_garden(self):
-        out = transform.run(with_garden(reading(), SE_GARDEN))
-        self.assertIn("house shade from 16:", out["wash"]["why"])
-        self.assertEqual(out["garden"], "SE garden, line 4 m")
+    def test_verdict_names_what_shades_it_and_title_shows_garden(self):
+        out = transform.run(with_garden(reading(), WITH_FENCE))
+        self.assertRegex(out["wash"]["why"], r"house shade from 1[56]:\d\d")
+        self.assertEqual(out["garden"], "NW house 4 m, SW fence 2 m")
         self.assertIsNone(transform.run(reading())["garden"])
 
 

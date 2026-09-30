@@ -8,10 +8,10 @@ watch:
 custom_fields:
   location: "{{ env.WASHING_LOCATION }}"
   # trmnlp only interpolates env in the polling URL, so these are literal.
-  # Try e.g. garden_faces: se, house_height: "3", line_distance: "4".
-  garden_faces: none
-  house_height: "2"
-  line_distance: "6"
+  # Try e.g. obstruction_1_type: house3, obstruction_1_direction: nw.
+  obstruction_1_type: none
+  obstruction_1_direction: nw
+  obstruction_1_distance: "4"
   shelter: open
 
 time_zone: Europe/London

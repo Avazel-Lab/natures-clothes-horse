@@ -34,12 +34,25 @@ custom_fields:
   field_type: lat_lon
   name: Location
   description: Where your washing line is. Search for a town or postcode, or enter "lat,lon".
-- keyname: garden_faces
+- keyname: obstruction_1_type
   field_type: select
-  name: Back of house faces
-  description: The direction the washing-line side of your house faces. Used to work out when the house shades the line and shelters it from wind. Leave as "No house nearby" for no adjustment.
+  name: Obstruction 1
+  description: Anything near the line that blocks sun or wind, such as your house, a fence, a shed or a tree. Add up to three. Houses and fences are treated as running right across; sheds and trees as narrow.
   options:
-  - No house nearby: none
+  - None: none
+  - Fence or wall (~1.8 m): fence
+  - Tall hedge (~3 m): hedge
+  - Shed or garage: shed
+  - Bungalow: bungalow
+  - House, 2 storeys: house2
+  - House, 2 storeys + loft or 3 storeys: house3
+  - Tree: tree
+  default: none
+- keyname: obstruction_1_direction
+  field_type: select
+  name: Obstruction 1 direction
+  description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
+  options:
   - North: n
   - North-east: ne
   - East: e
@@ -48,34 +61,108 @@ custom_fields:
   - South-west: sw
   - West: w
   - North-west: nw
-  default: none
-- keyname: house_height
+  default: nw
+- keyname: obstruction_1_distance
   field_type: select
-  name: House height
+  name: Obstruction 1 distance
+  description: From the line to the nearest face of it.
   options:
-  - 1 storey (bungalow): '1'
-  - 2 storeys: '2'
-  - 2 storeys + loft, or 3 storeys: '3'
-  default: '2'
-- keyname: line_distance
-  field_type: select
-  name: Line distance from house
-  description: From the back wall to the middle of the line.
-  options:
+  - 1 m: '1'
   - 2 m: '2'
   - 4 m: '4'
   - 6 m: '6'
   - 10 m: '10'
-  - 15 m or more: '15'
-  default: '6'
+  - 15 m: '15'
+  - 25 m or more: '25'
+  default: '4'
+- keyname: obstruction_2_type
+  field_type: select
+  name: Obstruction 2
+  options:
+  - None: none
+  - Fence or wall (~1.8 m): fence
+  - Tall hedge (~3 m): hedge
+  - Shed or garage: shed
+  - Bungalow: bungalow
+  - House, 2 storeys: house2
+  - House, 2 storeys + loft or 3 storeys: house3
+  - Tree: tree
+  default: none
+- keyname: obstruction_2_direction
+  field_type: select
+  name: Obstruction 2 direction
+  description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
+  options:
+  - North: n
+  - North-east: ne
+  - East: e
+  - South-east: se
+  - South: s
+  - South-west: sw
+  - West: w
+  - North-west: nw
+  default: sw
+- keyname: obstruction_2_distance
+  field_type: select
+  name: Obstruction 2 distance
+  description: From the line to the nearest face of it.
+  options:
+  - 1 m: '1'
+  - 2 m: '2'
+  - 4 m: '4'
+  - 6 m: '6'
+  - 10 m: '10'
+  - 15 m: '15'
+  - 25 m or more: '25'
+  default: '4'
+- keyname: obstruction_3_type
+  field_type: select
+  name: Obstruction 3
+  options:
+  - None: none
+  - Fence or wall (~1.8 m): fence
+  - Tall hedge (~3 m): hedge
+  - Shed or garage: shed
+  - Bungalow: bungalow
+  - House, 2 storeys: house2
+  - House, 2 storeys + loft or 3 storeys: house3
+  - Tree: tree
+  default: none
+- keyname: obstruction_3_direction
+  field_type: select
+  name: Obstruction 3 direction
+  description: Which way it is from the line (your house is north-west of the line if the garden faces south-east).
+  options:
+  - North: n
+  - North-east: ne
+  - East: e
+  - South-east: se
+  - South: s
+  - South-west: sw
+  - West: w
+  - North-west: nw
+  default: s
+- keyname: obstruction_3_distance
+  field_type: select
+  name: Obstruction 3 distance
+  description: From the line to the nearest face of it.
+  options:
+  - 1 m: '1'
+  - 2 m: '2'
+  - 4 m: '4'
+  - 6 m: '6'
+  - 10 m: '10'
+  - 15 m: '15'
+  - 25 m or more: '25'
+  default: '4'
 - keyname: shelter
   field_type: select
-  name: Other shelter
-  description: Fences, hedges, trees or neighbouring houses around the line.
+  name: General exposure
+  description: How sheltered the line is from everything not listed above (neighbours, trees further away). Tweaks wind only.
   options:
   - Open: open
-  - Some fences or hedges: some
-  - Enclosed garden: enclosed
+  - Some shelter: some
+  - Sheltered: sheltered
   default: open
 name: Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
 description: MMLAAA - when to hang washing out

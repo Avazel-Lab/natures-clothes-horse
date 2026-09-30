@@ -55,57 +55,101 @@ PARTIAL_OK = 0.6
 RATE_FULL = 0.45    # mm/h
 
 # ---- Garden ---------------------------------------------------------------
-# Plugin settings describe where the line is relative to the house. With
-# "none" there's no adjustment.
+# Up to three obstructions near the line (house, fence, shed, tree...), each
+# with a direction *from the line*, a type and a distance, plus a general
+# exposure setting. No obstructions and open exposure = no adjustment.
 
-FACES = {"n": 0, "ne": 45, "e": 90, "se": 135, "s": 180, "sw": 225, "w": 270, "nw": 315}
-FACES_WORDS = {"north": "n", "north-east": "ne", "northeast": "ne", "east": "e",
-               "south-east": "se", "southeast": "se", "south": "s",
-               "south-west": "sw", "southwest": "sw", "west": "w",
-               "north-west": "nw", "northwest": "nw"}
+COMPASS8 = {"n": 0, "ne": 45, "e": 90, "se": 135, "s": 180, "sw": 225, "w": 270, "nw": 315}
+COMPASS_WORDS = {"north": "n", "north-east": "ne", "northeast": "ne", "east": "e",
+                 "south-east": "se", "southeast": "se", "south": "s",
+                 "south-west": "sw", "southwest": "sw", "west": "w",
+                 "north-west": "nw", "northwest": "nw"}
 
-# House profile, metres: (eaves height at the back wall, ridge height, ridge
-# set back from the wall). The ridge is assumed parallel to the back wall.
-HOUSE = {"1": (2.7, 5.5, 4.0), "2": (5.3, 8.5, 4.0), "3": (7.8, 11.0, 4.0)}
-DEFAULT_HOUSE = "2"
-LINE_HEIGHT = 1.7   # m, roughly the middle of the hanging washing
-DEFAULT_DISTANCE = 6
+# Obstruction types:
+#   name       short name for the screen
+#   profile    [(height m, extra depth m)]: a house is its eaves at the near
+#              wall plus its ridge set back 4 m
+#   half_width metres either side of the line-of-sight centre; None = runs
+#              right across (a boundary fence, or a house: neighbouring
+#              houses usually continue the building line)
+#   shade      share of direct sun it blocks (a tree lets some through)
+#   wind       share of the solid-wall wind reduction it gives (porous = less)
+OBSTRUCTION_TYPES = {
+    "fence":    {"name": "fence",    "profile": [(1.8, 0)],            "half_width": None, "shade": 1.0, "wind": 0.8},
+    "hedge":    {"name": "hedge",    "profile": [(3.0, 0)],            "half_width": None, "shade": 0.9, "wind": 0.6},
+    "shed":     {"name": "shed",     "profile": [(2.5, 0)],            "half_width": 1.5,  "shade": 1.0, "wind": 1.0},
+    "bungalow": {"name": "bungalow", "profile": [(2.7, 0), (5.5, 4)],  "half_width": None,  "shade": 1.0, "wind": 1.0},
+    "house2":   {"name": "house",    "profile": [(5.3, 0), (8.5, 4)],  "half_width": None,  "shade": 1.0, "wind": 1.0},
+    "house3":   {"name": "house",    "profile": [(7.8, 0), (11.0, 4)], "half_width": None,  "shade": 1.0, "wind": 1.0},
+    "tree":     {"name": "tree",     "profile": [(10.0, 0)],           "half_width": 3.0,  "shade": 0.7, "wind": 0.5},
+}
+LINE_HEIGHT = 1.3   # m, middle of the hanging washing
+DEFAULT_DISTANCE = 4
 
-# Wind reduction behind a building, by distance in building (ridge) heights,
-# for wind blowing straight over it. Scaled by cos(angle) for oblique wind.
+# Wind reduction behind a solid obstruction, by distance in obstruction
+# heights, for wind blowing straight over it. Scaled by cos(angle).
 WAKE = [(0, 0.6), (1, 0.6), (2, 0.45), (4, 0.25), (8, 0.05), (12, 0.0)]
 
-# Extra wind reduction from fences, hedges and other houses.
-SHELTER = {"open": 1.0, "some": 0.85, "enclosed": 0.7}
+# General exposure: extra wind reduction from everything not listed.
+EXPOSURE = {"open": 1.0, "some": 0.85, "sheltered": 0.7, "enclosed": 0.7}
+
+
+def obstruction_type(label):
+    """Select value or label -> OBSTRUCTION_TYPES key (None for "none")."""
+    t = label.strip().lower()
+    if t in OBSTRUCTION_TYPES:
+        return t
+    for words, key in ((("fence", "wall"), "fence"), (("hedge",), "hedge"),
+                       (("shed", "garage"), "shed"), (("tree",), "tree"),
+                       (("bungalow", "1 storey"), "bungalow"),
+                       (("loft", "3 storey", "3-storey"), "house3"),
+                       (("house", "storey"), "house2")):
+        if any(w in t for w in words):
+            return key
+    return None
+
+
+def compass_deg(label):
+    c = label.strip().lower()
+    c = COMPASS_WORDS.get(c, c)
+    return COMPASS8.get(c), c
 
 
 def parse_garden(fields):
-    """Plugin settings -> garden dict, or None for no adjustment.
+    """Plugin settings -> {"obstructions": [...], "exposure": f}, or None.
 
     TRMNL may pass either a select's value or its label, so accept both.
+    Also reads the older single-house settings (garden_faces etc.).
     """
     def pick(key):
-        return str(fields.get(key) or "").strip().lower()
+        return str(fields.get(key) or "").strip()
 
-    faces = pick("garden_faces")
-    faces = FACES_WORDS.get(faces, faces)
-    if faces not in FACES:
+    obstructions = []
+    for n in (1, 2, 3):
+        kind = obstruction_type(pick(f"obstruction_{n}_type"))
+        deg, code = compass_deg(pick(f"obstruction_{n}_direction"))
+        if not kind or deg is None:
+            continue
+        digits = "".join(c for c in pick(f"obstruction_{n}_distance") if c.isdigit())
+        obstructions.append(dict(OBSTRUCTION_TYPES[kind], azimuth=deg, compass=code.upper(),
+                                 distance=max(int(digits) if digits else DEFAULT_DISTANCE, 1)))
+
+    # Older settings: back of house faces X -> a house on the opposite side.
+    faces, _ = compass_deg(pick("garden_faces"))
+    if not obstructions and faces is not None:
+        height = pick("house_height").lower()
+        kind = "house3" if "loft" in height or height.startswith("3") else \
+               "bungalow" if height.startswith("1") else "house2"
+        digits = "".join(c for c in pick("line_distance") if c.isdigit())
+        opposite = (faces + 180) % 360
+        code = next(k for k, v in COMPASS8.items() if v == opposite)
+        obstructions.append(dict(OBSTRUCTION_TYPES[kind], azimuth=opposite, compass=code.upper(),
+                                 distance=int(digits) if digits else DEFAULT_DISTANCE))
+
+    exposure = EXPOSURE.get((pick("shelter").lower().split() or ["open"])[0], 1.0)
+    if not obstructions and exposure == 1.0:
         return None
-
-    height = pick("house_height")
-    height = ("3" if "loft" in height or height.startswith("3")
-              else "1" if height.startswith("1") or "bungalow" in height
-              else "2" if height else DEFAULT_HOUSE)
-    digits = "".join(c for c in pick("line_distance") if c.isdigit())
-    distance = int(digits) if digits else DEFAULT_DISTANCE
-    shelter = pick("shelter").split()[0] if pick("shelter") else "open"
-    if shelter not in SHELTER:
-        shelter = "open"
-
-    eaves, ridge, setback = HOUSE[height]
-    return {"faces": faces, "azimuth": FACES[faces], "distance": distance,
-            "eaves": eaves, "ridge": ridge, "setback": setback,
-            "shelter": SHELTER[shelter]}
+    return {"obstructions": obstructions, "exposure": exposure}
 
 
 def sun_position(when, utc_offset, lat, lon):
@@ -129,39 +173,59 @@ def sun_position(when, utc_offset, lat, lon):
     return elev, az % 360
 
 
-def line_shaded(elev, az, garden):
-    """Is the line in the house's shadow with the sun here?"""
+def _facing(ob, az):
+    """cos of the angle between `az` and the obstruction's direction, or 0 if
+    a line of sight towards `az` misses it (behind us, or past its side)."""
+    rel = math.radians((az - ob["azimuth"] + 180) % 360 - 180)
+    c = math.cos(rel)
+    if c <= 0.01:
+        return 0.0
+    if ob["half_width"] is not None and abs(ob["distance"] * math.tan(rel)) > ob["half_width"]:
+        return 0.0
+    return c
+
+
+def horizon(ob, az):
+    """How high (degrees) the obstruction reaches above the line towards `az`."""
+    c = _facing(ob, az)
+    if not c:
+        return 0.0
+    return max(math.degrees(math.atan2(h - LINE_HEIGHT, (ob["distance"] + extra) / c))
+               for h, extra in ob["profile"])
+
+
+def shading(elev, az, garden):
+    """(share of direct sun blocked, name of what's blocking it)."""
     if elev <= 0:
-        return True
-    behind = -math.cos(math.radians(az - garden["azimuth"]))
-    if behind <= 0:
-        return False  # sun is on the garden side of the house
-    reach = behind / math.tan(math.radians(elev))
-    for height, setback in ((garden["eaves"], 0.0), (garden["ridge"], garden["setback"])):
-        if (height - LINE_HEIGHT) * reach - setback >= garden["distance"]:
-            return True
-    return False
+        return 1.0, None
+    blocked, name = 0.0, None
+    for ob in garden["obstructions"]:
+        if elev < horizon(ob, az) and ob["shade"] > blocked:
+            blocked, name = ob["shade"], ob["name"]
+    return blocked, name
 
 
 def shade_fraction(start, end, geo, garden, steps=4):
     step = (end - start) / steps
     samples = [start + step * (k + 0.5) for k in range(steps)]
-    return sum(line_shaded(*sun_position(t, *geo), garden) for t in samples) / steps
+    return sum(shading(*sun_position(t, *geo), garden)[0] for t in samples) / steps
 
 
 def wind_factor(from_deg, garden):
     """Share of the forecast wind that reaches the line."""
-    house_dir = (garden["azimuth"] + 180) % 360
-    c = math.cos(math.radians(from_deg - house_dir))
-    reduction = 0.0
-    if c > 0:
-        x = garden["distance"] / garden["ridge"]
+    factor = garden["exposure"]
+    for ob in garden["obstructions"]:
+        c = _facing(ob, from_deg)
+        if not c:
+            continue
+        x = ob["distance"] / max(h for h, _ in ob["profile"])
+        reduction = 0.0
         for (x0, r0), (x1, r1) in zip(WAKE, WAKE[1:]):
             if x <= x1:
                 reduction = r0 + (r1 - r0) * (x - x0) / (x1 - x0)
                 break
-        reduction *= c
-    return (1 - reduction) * garden["shelter"]
+        factor *= 1 - reduction * c * ob["wind"]
+    return factor
 
 
 def et0_hourly(temp, rh, u2, rs_w, elev, z):
@@ -647,27 +711,37 @@ def timeline(hours, day, suns, win, now):
 
 
 def shade_text(rise, sset, geo, garden):
-    """When the house shades the line during the day, in words."""
+    """When obstructions shade the line during the day, in words."""
     step = timedelta(minutes=5)
-    t, shaded, changes = rise, [], []
+    t, samples = rise, []
     while t < sset:
         elev, az = sun_position(t, *geo)
         if elev >= 3:  # ignore the sun skimming the horizon
-            shaded.append((t, line_shaded(elev, az, garden)))
+            blocked, name = shading(elev, az, garden)
+            samples.append((t, name if blocked >= 0.5 else None))
         t += step
-    if not shaded or not any(s for _, s in shaded):
+    if not samples or not any(n for _, n in samples):
         return None
-    if all(s for _, s in shaded):
-        return "house shades the line all day"
-    for (t0, s0), (t1, s1) in zip(shaded, shaded[1:]):
-        if s0 != s1:
-            changes.append((t1, s1))
+    if all(n for _, n in samples):
+        return "line shaded all day"
     parts = []
-    if shaded[0][1]:
-        parts.append(f"until {hhmm(changes[0][0])}")
-        changes = changes[1:]
-    parts += [f"from {hhmm(t)}" for t, s in changes if s]
-    return "house shade " + " and ".join(parts) if parts else None
+    if samples[0][1]:
+        end = next(t for t, n in samples if not n)
+        parts.append(f"{samples[0][1]} shade until {hhmm(end)}")
+    for (_, n0), (t1, n1) in zip(samples, samples[1:]):
+        if n1 and not n0:
+            parts.append(f"{n1} shade from {hhmm(t1)}")
+    return ", ".join(parts)
+
+
+def garden_label(garden):
+    """Short summary for the title bar, e.g. "NW house 4 m, SW fence 2 m"."""
+    if not garden:
+        return None
+    parts = [f"{ob['compass']} {ob['name']} {ob['distance']} m" for ob in garden["obstructions"]]
+    if garden["exposure"] < 1:
+        parts.append("sheltered")
+    return ", ".join(parts)
 
 
 # ---- Entry point ---------------------------------------------------------
@@ -755,7 +829,7 @@ def run(input):
         "today": days[0],
         "tomorrow": days[1] if len(days) > 1 else None,
         "wash": wash,
-        "garden": f"{garden['faces'].upper()} garden, line {garden['distance']} m" if garden else None,
+        "garden": garden_label(garden),
         "chart": {
             "day": "Today" if chart_day == now.date() else "Tomorrow",
             "bars": bars,

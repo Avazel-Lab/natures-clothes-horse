@@ -51,26 +51,36 @@ sunrise), for planning blankets and windows, not the calendar day's minimum.
 
 ### Your garden
 
-Optional settings describe where the line is: which way the back of the
-house faces, its height, the line's distance from the house, and other
-shelter. From these, each hour:
+Optional settings list up to three **obstructions** near the line: your
+house, a fence, a shed, a tree. Each has a type, a direction *from the line*
+(the house is north-west of the line in a south-east facing garden) and a
+distance. **General exposure** tweaks wind for everything else.
 
-- **Shade:** the sun's position is calculated, and when the house's shadow
-  reaches the line, direct sunshine is removed (sky light still counts). The
-  verdict says when, e.g. "house shade from 16:32". The shade time moves with
-  the seasons automatically.
-- **Wind shelter:** wind blowing over the house towards the line is reduced,
-  most when the line is within one or two house-heights and the wind blows
-  straight over; wind along the wall or from the garden side isn't. Fences
-  and hedges reduce it further.
+| Type | Modelled as |
+|---|---|
+| Fence or wall | 1.8 m, runs right across, fairly solid to wind |
+| Tall hedge | 3 m, runs right across, lets some sun and wind through |
+| Shed or garage | 2.5 m, 3 m wide |
+| Bungalow / house | eaves plus a ridge set back 4 m (5.5, 8.5 or 11 m); runs right across, since neighbours usually continue the building line |
+| Tree | 10 m, 6 m wide, blocks 70% of direct sun and half as much wind as a wall |
 
-The house is treated as a long wall with a ridge set back 4 m, which is
-good for shade timing (roughly ±30 min). Wind shelter is a rough estimate,
-to be tuned with real drying times.
+Each hour:
 
-With "No house nearby" there is no adjustment. The title bar shows the
-garden in use (e.g. "SE garden, line 4 m"), or "Garden settings not applied"
-if TRMNL didn't pass the settings to the transform.
+- **Shade:** the sun's position is calculated, and if it's below the top of
+  an obstruction as seen from the line, that share of direct sunshine is
+  removed (sky light still counts). The verdict names it, e.g. "house shade
+  from 16:27". Shade times move with the seasons automatically.
+- **Wind:** wind blowing over an obstruction towards the line is reduced,
+  most when the line is within one or two obstruction-heights and the wind
+  blows straight over it.
+
+The line is taken as 1.3 m high (the middle of the hanging washing). Shade
+timing should be good to roughly half an hour; wind shelter is a rough
+estimate, to be tuned with real drying times.
+
+With no obstructions and open exposure, there's no adjustment. The title bar
+shows what's in use (e.g. "NW house 4 m, SW fence 2 m"), or "Garden settings
+not applied" if TRMNL didn't pass the settings to the transform.
 
 All thresholds are in the tunables block at the top of `src/transform.py`.
 They're first guesses and need calibrating against real washing.
@@ -119,8 +129,8 @@ python3 -m unittest discover tests
 - The plugin name is over 50 characters (it's the full Ministry name).
 - Too many custom styles. The check counts any CSS property in the markup,
   including the shared stylesheet in `src/shared.liquid`.
-- The garden fields are "not used in markup": they're read by the transform,
-  which lint doesn't look at.
+- Most obstruction fields are "not used in markup": they're read by the
+  transform, which lint doesn't look at.
 - `lat_lon` is an unknown field type. TRMNL documents and supports it, but
   the linter hasn't caught up.
 

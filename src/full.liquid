@@ -90,6 +90,6 @@
 
 <div class="title_bar">
   <span class="title">Ministry of Meteorology, Laundry &amp; Associated Atmospheric Affairs</span>
-  {% assign faces = trmnl.plugin_settings.custom_fields_values.garden_faces %}
-  <span class="instance">{% if now %}{% if garden %}{{ garden }} · {% elsif faces and faces != "none" %}Garden settings not applied · {% endif %}Updated {{ now.time }}{% endif %}</span>
+  {% assign ob = trmnl.plugin_settings.custom_fields_values.obstruction_1_type %}
+  <span class="instance">{% if now %}{% if garden %}{{ garden }} · {% elsif ob and ob != "none" %}Garden settings not applied · {% endif %}Updated {{ now.time }}{% endif %}</span>
 </div>
