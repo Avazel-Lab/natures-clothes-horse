@@ -135,7 +135,6 @@ def parse_garden(fields):
     """Plugin settings -> {"obstructions": [...], "exposure": f}, or None.
 
     TRMNL may pass either a select's value or its label, so accept both.
-    Also reads the older single-house settings (garden_faces etc.).
     """
     def pick(key):
         return str(fields.get(key) or "").strip()
@@ -149,18 +148,6 @@ def parse_garden(fields):
         digits = "".join(c for c in pick(f"obstruction_{n}_distance") if c.isdigit())
         obstructions.append(dict(OBSTRUCTION_TYPES[kind], azimuth=deg, compass=code.upper(),
                                  distance=max(int(digits) if digits else DEFAULT_DISTANCE, 1)))
-
-    # Older settings: back of house faces X -> a house on the opposite side.
-    faces, _ = compass_deg(pick("garden_faces"))
-    if not obstructions and faces is not None:
-        height = pick("house_height").lower()
-        kind = "house3" if "loft" in height or height.startswith("3") else \
-               "bungalow" if height.startswith("1") else "house2"
-        digits = "".join(c for c in pick("line_distance") if c.isdigit())
-        opposite = (faces + 180) % 360
-        code = next(k for k, v in COMPASS8.items() if v == opposite)
-        obstructions.append(dict(OBSTRUCTION_TYPES[kind], azimuth=opposite, compass=code.upper(),
-                                 distance=int(digits) if digits else DEFAULT_DISTANCE))
 
     exposure = EXPOSURE.get((pick("shelter").lower().split() or ["open"])[0], 1.0)
     if not obstructions and exposure == 1.0:

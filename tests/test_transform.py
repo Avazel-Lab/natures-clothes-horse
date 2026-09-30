@@ -381,10 +381,6 @@ class Garden(unittest.TestCase):
         self.assertLess(transform.wind_factor(225, section), 1.0)   # straight over it
         self.assertEqual(transform.wind_factor(300, section), 1.0)  # WNW: round its end
 
-    def test_older_single_house_settings_still_work(self):
-        old = garden({"garden_faces": "se", "house_height": "2", "line_distance": "4"})
-        self.assertEqual(old, garden(HOUSE_NW))
-
     def test_nothing_set_means_no_adjustment(self):
         self.assertIsNone(garden({}))
         self.assertIsNone(garden({"obstruction_1_type": "none", "obstruction_1_direction": "n"}))
