@@ -51,7 +51,9 @@
   .nc-key { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin: 0 3px 0 10px; }
   .nc-key--win { background: #000; }
   .nc-key--dry { background: #aaa; }
-  .nc-key--night { border: 1px solid #999; }
+  .nc-bar-moon { position: absolute; top: 2px; left: 0; right: 0; text-align: center; font-size: 20px; line-height: 1; }
+  .nc-chart--small .nc-bar-moon { font-size: 13px; }
+  .nc-key-moon { font-size: 15px; margin: 0 3px 0 10px; vertical-align: middle; }
   .nc-key--wet { background: repeating-linear-gradient(45deg, #000 0 2px, #fff 2px 5px); border: 1px solid #000; }
 </style>
 
@@ -61,7 +63,8 @@
 <div class="nc-chart{% if small %} nc-chart--small{% endif %}">
   {% for b in chart.bars %}
     <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.night %} nc-bar--night{% endif %}{% if b.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
-      <div class="nc-bar-track{% if b.night %} bg--gray-75{% endif %}">
+      <div class="nc-bar-track">
+        {% if b.night %}<i class="wi wi-night-clear nc-bar-moon"></i>{% endif %}
         {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob label label--small">{{ b.prob }}%</span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>
       </div>
