@@ -40,11 +40,24 @@ They're first guesses and need calibrating against real washing.
 
 ## Setup
 
-1. Install [trmnlp](https://github.com/usetrmnl/trmnlp) (Ruby gem or Docker).
-2. `trmnlp login`, then `trmnlp push`. This creates the private plugin. Copy
-   the `id` it's given into `src/settings.yml` so future pushes update it.
-3. In TRMNL, open the plugin's settings. Set **Location** (search for a place
-   or enter `lat,lon`) and **Typical load**.
+Uses [trmnlp](https://github.com/usetrmnl/trmnlp) via Docker (no Ruby
+needed). From the project folder:
+
+```sh
+# Once: paste your API key from your TRMNL account page when asked
+docker run -it --rm -v "$HOME/.config/trmnlp:/root/.config/trmnlp" \
+  -v "$PWD:/plugin" trmnl/trmnlp login
+
+# Each time you want to upload changes
+docker run -it --rm -v "$HOME/.config/trmnlp:/root/.config/trmnlp" \
+  -v "$PWD:/plugin" trmnl/trmnlp push
+```
+
+The first push creates the private plugin and writes its `id` into
+`src/settings.yml`. Commit that, so later pushes update the same plugin
+instead of creating a new one.
+
+Then, in TRMNL, open the plugin's settings. Set **Location** (search for a place or enter `lat,lon`) and **Typical load**.
 
 ## Local preview
 
