@@ -484,6 +484,8 @@ class Output(unittest.TestCase):
         night = [b["label"] for b in bars if b["night"]]
         self.assertEqual((night[0], night[-1], len(night)), ("19", "05", 11))
         self.assertTrue(all(b["pct"] == 0 for b in bars if b["night"]))
+        # "night" is written once, in the middle of the night run (19-05).
+        self.assertEqual([b["label"] for b in bars if b["night_label"]], ["00"])
         # Labels every 3 hours for the small charts, plus "now".
         self.assertEqual([b["label"] for b in bars if b["tick"]][:4], ["10", "12", "15", "18"])
 

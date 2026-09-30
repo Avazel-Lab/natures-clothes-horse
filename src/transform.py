@@ -833,7 +833,16 @@ def timeline(hours, now, win):
             "win": in_win,
             "night": not h["day"],
             "now": h["start"] == first,
+            "night_label": False,
         })
+    # Label the middle of each run of night hours.
+    run = []
+    for b in bars + [{"night": False}]:
+        if b["night"]:
+            run.append(b)
+        elif run:
+            run[len(run) // 2]["night_label"] = True
+            run = []
     return bars
 
 
