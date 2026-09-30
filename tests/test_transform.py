@@ -1,6 +1,7 @@
 """Tests for the washing engine. Run: python3 -m unittest discover tests"""
 import json
 import sys
+from datetime import datetime
 import unittest
 from pathlib import Path
 
@@ -21,10 +22,8 @@ def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
     `codes` optionally gives today's hourly weather codes: {hour: code}.
     """
     overrides = overrides or {}
-    hourly = {k: [] for k in ("time", "et0_fao_evapotranspiration", "precipitation_probability",
-                              "precipitation", "is_day", "relative_humidity_2m", "wind_speed_10m",
-                              "weather_code", "temperature_2m")}
     days = ("2026-09-30", "2026-10-01", "2026-10-02")
+    specs = []  # (timestamp, values) for each hour, keyed by the hour's start
     for day in days:
         for hr in range(24):
             ts = f"{day}T{hr:02d}:00"
@@ -37,9 +36,17 @@ def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
             h.update({{"rate": "et0_fao_evapotranspiration", "prob": "precipitation_probability",
                        "mm": "precipitation", "temp": "temperature_2m"}.get(k, k): v
                       for k, v in overrides.get(ts, {}).items()})
-            hourly["time"].append(ts)
-            for k, v in h.items():
-                hourly[k].append(v)
+            specs.append((ts, h))
+
+    # Like Open-Meteo: instant values sit at their own timestamp, but "preceding
+    # hour" values (ET0, rain) for the hour starting at T sit at T + 1h.
+    period = ("et0_fao_evapotranspiration", "precipitation_probability", "precipitation")
+    hourly = {k: [] for k in ("time",) + tuple(specs[0][1])}
+    for k, (ts, h) in enumerate(specs):
+        before = specs[k - 1][1] if k else h
+        hourly["time"].append(ts)
+        for name, v in h.items():
+            hourly[name].append(before[name] if name in period else v)
     return {
         "current": {"time": now, "temperature_2m": 18.2, "apparent_temperature": 16.6,
                     "relative_humidity_2m": 65, "weather_code": 61 if raining_now else 2,
@@ -238,6 +245,85 @@ class NightLows(unittest.TestCase):
         out = transform.run(json.loads((FIXTURES / "sunny_autumn.json").read_text()))
         self.assertEqual(out["today"]["lo"], 13)     # tonight, from hourly temps
         self.assertEqual(out["tomorrow"]["lo"], 13)  # daily min for 1 Oct (13.1)
+
+
+SE_GARDEN = {"garden_faces": "se", "house_height": "3", "line_distance": "4", "shelter": "open"}
+
+
+def with_garden(data, fields):
+    data["trmnl"] = {"plugin_settings": {"custom_fields_values": fields}}
+    return data
+
+
+def reading():
+    return json.loads((FIXTURES / "reading_full.json").read_text())
+
+
+class Garden(unittest.TestCase):
+    def test_settings_accept_values_or_labels(self):
+        by_value = transform.parse_garden(SE_GARDEN)
+        by_label = transform.parse_garden({"garden_faces": "South-east",
+                                           "house_height": "2 storeys + loft or 3 storeys",
+                                           "line_distance": "4 m", "shelter": "Open"})
+        self.assertEqual(by_value, by_label)
+        self.assertEqual(by_value["azimuth"], 135)
+        self.assertEqual(by_value["ridge"], 11.0)
+
+    def test_no_house_means_no_adjustment(self):
+        self.assertIsNone(transform.parse_garden({"garden_faces": "none"}))
+        self.assertIsNone(transform.parse_garden({}))
+
+    def test_sun_position_at_solar_noon(self):
+        # Alton, 30 Sep: sun due south at about 36 degrees, near 12:55 BST.
+        elev, az = transform.sun_position(datetime(2026, 9, 30, 12, 55), 3600, 51.15, -0.97)
+        self.assertAlmostEqual(elev, 36.4, delta=0.5)
+        self.assertAlmostEqual(az, 180, delta=2)
+
+    def test_shade_geometry(self):
+        g = transform.parse_garden(SE_GARDEN)
+        self.assertFalse(transform.line_shaded(30, 180, g))   # sun in front of the house
+        self.assertTrue(transform.line_shaded(10, 300, g))    # low, behind it
+        self.assertFalse(transform.line_shaded(50, 250, g))   # behind but high: shadow too short
+        self.assertTrue(transform.line_shaded(25, 300, g))
+        far = dict(g, distance=40)  # 11 m house, sun at 25 deg: ~15 m shadow
+        self.assertFalse(transform.line_shaded(25, 300, far))
+
+    def test_wind_over_the_house_is_cut(self):
+        g = transform.parse_garden(SE_GARDEN)
+        self.assertAlmostEqual(transform.wind_factor(315, g), 0.4, delta=0.01)       # NW: straight over
+        self.assertAlmostEqual(transform.wind_factor(225, g), 1.0, delta=0.01)       # SW: along the wall
+        self.assertEqual(transform.wind_factor(135, g), 1.0)                        # SE: open side
+        enclosed = transform.parse_garden(dict(SE_GARDEN, shelter="enclosed"))
+        self.assertAlmostEqual(transform.wind_factor(135, enclosed), 0.7)
+
+    def test_own_et0_matches_open_meteo(self):
+        data = reading()
+        hours = transform.build_hours(data)
+        ours = sum(h["rate"] for h in hours if h["day"])
+        theirs = sum(e for e, d in zip(data["hourly"]["et0_fao_evapotranspiration"], hours) if d["day"])
+        self.assertAlmostEqual(ours / theirs, 1.0, delta=0.03)
+
+    def test_values_describe_the_preceding_hour(self):
+        data = reading()
+        hours = transform.build_hours(data)
+        i = data["hourly"]["time"].index("2026-09-30T13:00")
+        self.assertEqual(hours[i]["start"], datetime(2026, 9, 30, 12, 0))
+        self.assertEqual(hours[i]["prob"], data["hourly"]["precipitation_probability"][i])
+
+    def test_shade_and_shelter_slow_drying(self):
+        data = reading()
+        # Make it a north-westerly all day, straight over the house.
+        data["hourly"]["wind_direction_10m"] = [315] * len(data["hourly"]["time"])
+        open_rate = sum(h["rate"] for h in transform.build_hours(data) if h["day"])
+        g = transform.parse_garden(SE_GARDEN)
+        garden_rate = sum(h["rate"] for h in transform.build_hours(data, g) if h["day"])
+        self.assertLess(garden_rate, open_rate * 0.95)
+
+    def test_verdict_mentions_shade_and_title_shows_garden(self):
+        out = transform.run(with_garden(reading(), SE_GARDEN))
+        self.assertIn("house shade from 16:", out["wash"]["why"])
+        self.assertEqual(out["garden"], "SE garden, line 4 m")
+        self.assertIsNone(transform.run(reading())["garden"])
 
 
 class Output(unittest.TestCase):

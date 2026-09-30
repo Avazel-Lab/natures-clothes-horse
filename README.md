@@ -25,7 +25,9 @@ mashups.
 
 Each hour's drying rate is the FAO-56 reference evapotranspiration (ET0,
 mm/h). This is the standard measure of how fast water evaporates, and it
-combines sunshine, temperature, humidity and wind. A load is dry once the ET0
+combines sunshine, temperature, humidity and wind. We calculate it ourselves
+from Open-Meteo's hourly sunshine, temperature, humidity and wind (it matches
+Open-Meteo's own ET0 to within 1%), so the garden can adjust the inputs. A load is dry once the ET0
 it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
 1.9 mm. The verdict is for a normal load; the screen also shows when light
 and heavy loads would be dry if hung out at the same time.
@@ -47,6 +49,29 @@ so a sunny day after a drizzly night would otherwise read "Light drizzle".
 The low shown for each day is the **coming night's** low (sunset to the next
 sunrise), for planning blankets and windows, not the calendar day's minimum.
 
+### Your garden
+
+Optional settings describe where the line is: which way the back of the
+house faces, its height, the line's distance from the house, and other
+shelter. From these, each hour:
+
+- **Shade:** the sun's position is calculated, and when the house's shadow
+  reaches the line, direct sunshine is removed (sky light still counts). The
+  verdict says when, e.g. "house shade from 16:32". The shade time moves with
+  the seasons automatically.
+- **Wind shelter:** wind blowing over the house towards the line is reduced,
+  most when the line is within one or two house-heights and the wind blows
+  straight over; wind along the wall or from the garden side isn't. Fences
+  and hedges reduce it further.
+
+The house is treated as a long wall with a ridge set back 4 m, which is
+good for shade timing (roughly ±30 min). Wind shelter is a rough estimate,
+to be tuned with real drying times.
+
+With "No house nearby" there is no adjustment. The title bar shows the
+garden in use (e.g. "SE garden, line 4 m"), or "Garden settings not applied"
+if TRMNL didn't pass the settings to the transform.
+
 All thresholds are in the tunables block at the top of `src/transform.py`.
 They're first guesses and need calibrating against real washing.
 
@@ -66,7 +91,7 @@ The first push creates the private plugin and writes its `id` into
 `src/settings.yml`. Commit that, so later pushes update the same plugin
 instead of creating a new one.
 
-Then, in TRMNL, open the plugin's settings and set **Location** (search for a place or enter `lat,lon`).
+Then, in TRMNL, open the plugin's settings and set **Location** (search for a place or enter `lat,lon`), and optionally the garden settings.
 
 ## Local preview
 
@@ -89,11 +114,13 @@ python3 -m unittest discover tests
 
 ## Lint
 
-`trmnlp lint` reports three warnings, all fine for a private plugin:
+`trmnlp lint` reports some warnings, all fine for a private plugin:
 
 - The plugin name is over 50 characters (it's the full Ministry name).
 - Too many custom styles. The check counts any CSS property in the markup,
   including the shared stylesheet in `src/shared.liquid`.
+- The garden fields are "not used in markup": they're read by the transform,
+  which lint doesn't look at.
 - `lat_lon` is an unknown field type. TRMNL documents and supports it, but
   the linter hasn't caught up.
 
