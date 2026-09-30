@@ -360,7 +360,34 @@ def quarter(dt, up=False):
 
 
 def rnd(x):
-    return int(round(x))
+    return None if x is None else int(round(x))
+
+
+def shown(x):
+    return "–" if x is None else rnd(x)
+
+
+def fill_gaps(values, interpolate=True):
+    """Fill missing (None) values from their neighbours, so a gap in the
+    forecast doesn't break the calculations. Numbers are interpolated
+    linearly; otherwise (or at the ends) the nearest known value is used.
+    A column with nothing in it is returned unchanged."""
+    known = [i for i, v in enumerate(values) if v is not None]
+    if not known or len(known) == len(values):
+        return values
+    out = list(values)
+    for i, v in enumerate(values):
+        if v is not None:
+            continue
+        before = max((k for k in known if k < i), default=None)
+        after = min((k for k in known if k > i), default=None)
+        if before is None or after is None:
+            out[i] = values[before if after is None else after]
+        elif interpolate:
+            out[i] = values[before] + (values[after] - values[before]) * (i - before) / (after - before)
+        else:
+            out[i] = values[before if i - before <= after - i else after]
+    return out
 
 
 def most_common(codes):
@@ -395,17 +422,19 @@ def build_hours(data, garden=None):
     hourly = data["hourly"]
     n = len(hourly["time"])
 
-    def col(name):
-        return hourly.get(name) or [None] * n
+    def col(name, interpolate=True):
+        return fill_gaps(hourly.get(name) or [None] * n, interpolate)
 
     def mid(values, i, j):
         a, b = values[j], values[i]
         return b if a is None else a if b is None else (a + b) / 2
 
     temp, rh, wind = col("temperature_2m"), col("relative_humidity_2m"), col("wind_speed_10m")
-    wdir, code, is_day = col("wind_direction_10m"), col("weather_code"), col("is_day")
     sw, direct = col("shortwave_radiation"), col("direct_radiation")
-    own_et0 = sw[0] is not None and temp[0] is not None
+    # Directions and codes can't be averaged: take the nearest known value.
+    wdir, code, is_day = (col(k, interpolate=False)
+                          for k in ("wind_direction_10m", "weather_code", "is_day"))
+    own_et0 = all(v is not None for v in (sw[0], temp[0], rh[0]))
     geo = (data.get("utc_offset_seconds", 0), data.get("latitude", 0), data.get("longitude", 0))
     z = data.get("elevation") or 0
 
@@ -983,18 +1012,19 @@ def run(input):
     bars = timeline(hours, now, wash["window"])
     wash["window"] = None  # datetimes aren't JSON; the bars carry it now
 
-    text, icon = describe(cur["weather_code"], is_day)
+    text, icon = describe(cur.get("weather_code"), is_day)
     return {
         "now": {
             "time": hhmm(now),
-            "text": "Raining" if raining_now and cur["weather_code"] < 51 else text,
+            "text": "Raining" if raining_now and (cur.get("weather_code") or 0) < 51 else text,
             "icon": icon,
-            "temp": rnd(cur["temperature_2m"]),
-            "feels": rnd(cur["apparent_temperature"]),
-            "humidity": rnd(cur["relative_humidity_2m"]),
-            "wind": rnd(cur["wind_speed_10m"]),
-            "gust": rnd(cur["wind_gusts_10m"]),
-            "wind_dir": compass(cur["wind_direction_10m"]),
+            # A dash for anything missing, rather than a bare "°".
+            "temp": shown(cur.get("temperature_2m")),
+            "feels": shown(cur.get("apparent_temperature")),
+            "humidity": shown(cur.get("relative_humidity_2m")),
+            "wind": shown(cur.get("wind_speed_10m")),
+            "gust": shown(cur.get("wind_gusts_10m")),
+            "wind_dir": compass(cur["wind_direction_10m"]) if cur.get("wind_direction_10m") is not None else "",
         },
         "today": days[0],
         "tomorrow": days[1] if len(days) > 1 else None,

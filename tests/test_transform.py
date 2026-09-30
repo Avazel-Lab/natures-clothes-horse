@@ -464,6 +464,32 @@ class PastDay(unittest.TestCase):
         self.assertEqual(out["tomorrow"]["hi"], 18)
 
 
+class MissingData(unittest.TestCase):
+    def test_gaps_in_the_forecast_are_filled(self):
+        data = reading()
+        for name in ("temperature_2m", "relative_humidity_2m", "wind_speed_10m", "shortwave_radiation",
+                     "direct_radiation", "wind_direction_10m", "weather_code", "is_day",
+                     "precipitation_probability", "precipitation"):
+            for i in (0, 1, 40, 41, 42, -1):
+                data["hourly"][name][i] = None
+        out = transform.run(data)
+        self.assertEqual(len(out["chart"]["bars"]), 24)
+        self.assertTrue(out["wash"]["headline"])
+
+    def test_fill_gaps(self):
+        self.assertEqual(transform.fill_gaps([1.0, None, None, 4.0]), [1.0, 2.0, 3.0, 4.0])
+        self.assertEqual(transform.fill_gaps([None, 5, None]), [5, 5, 5])
+        self.assertEqual(transform.fill_gaps([90, None, None, 270], interpolate=False), [90, 90, 270, 270])
+        self.assertEqual(transform.fill_gaps([None, None]), [None, None])
+
+    def test_missing_current_values_show_a_dash(self):
+        data = reading()
+        data["current"]["temperature_2m"] = None
+        data["current"]["wind_direction_10m"] = None
+        now = transform.run(data)["now"]
+        self.assertEqual((now["temp"], now["wind_dir"]), ("–", ""))
+
+
 class Output(unittest.TestCase):
     def test_real_forecast_is_json_serialisable(self):
         data = json.loads((FIXTURES / "sunny_autumn.json").read_text())
