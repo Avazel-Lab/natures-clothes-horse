@@ -1,5 +1,5 @@
 """
-Ministry of Meteorology, Laundry & Associated Atmospheric Affairs (MMLAAA):
+The Ministry of Meteorology, Laundry & Regional Atmospheric Affairs (MoMRAAA):
 TRMNL serverless transform.
 
 Input: the Open-Meteo /v1/forecast response (polled by TRMNL).

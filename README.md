@@ -1,6 +1,7 @@
-# Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
+# The Ministry of Meteorology, Laundry & Regional Atmospheric Affairs
 
-**MMLAAA**: a TRMNL plugin that decides when to hang the washing out.
+**MoMRAAA**, or the Ministry of Meteorology & Laundry Affairs for short: a
+TRMNL plugin that decides when to hang the washing out.
 
 Tells you whether to hang the washing out, when it'll be dry, and when it has
 to come in, alongside the usual weather: current conditions, feels-like,
@@ -154,7 +155,8 @@ python3 -m unittest discover tests
 
 `trmnlp lint` reports some warnings, all fine for a private plugin:
 
-- The plugin name is over 50 characters (it's the full Ministry name).
+- The plugin name is over 50 characters (it's the full ceremonial name; the
+  screen uses the short one).
 - Too many custom styles. The check counts any CSS property in the markup,
   including the shared stylesheet in `src/shared.liquid`.
 - Most obstruction fields are "not used in markup": they're read by the

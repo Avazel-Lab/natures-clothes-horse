@@ -198,6 +198,6 @@ custom_fields:
   - Some shelter: some
   - Sheltered: sheltered
   default: open
-name: Ministry of Meteorology, Laundry & Associated Atmospheric Affairs
-description: MMLAAA - when to hang washing out
+name: The Ministry of Meteorology, Laundry & Regional Atmospheric Affairs
+description: MoMRAAA - when to hang washing out
 refresh_interval: 30
