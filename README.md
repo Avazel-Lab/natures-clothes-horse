@@ -44,6 +44,8 @@ says so, in case the washing would otherwise stay out.
 Today's and tomorrow's conditions and rain chance cover **daylight hours
 only**. Open-Meteo's daily summary is the worst weather in the whole 24 hours,
 so a sunny day after a drizzly night would otherwise read "Light drizzle".
+The low shown for each day is the **coming night's** low (sunset to the next
+sunrise), for planning blankets and windows, not the calendar day's minimum.
 
 All thresholds are in the tunables block at the top of `src/transform.py`.
 They're first guesses and need calibrating against real washing.

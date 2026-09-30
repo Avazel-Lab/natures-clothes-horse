@@ -23,17 +23,19 @@ def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
     overrides = overrides or {}
     hourly = {k: [] for k in ("time", "et0_fao_evapotranspiration", "precipitation_probability",
                               "precipitation", "is_day", "relative_humidity_2m", "wind_speed_10m",
-                              "weather_code")}
-    for day in ("2026-09-30", "2026-10-01"):
+                              "weather_code", "temperature_2m")}
+    days = ("2026-09-30", "2026-10-01", "2026-10-02")
+    for day in days:
         for hr in range(24):
             ts = f"{day}T{hr:02d}:00"
             is_day = int(sunrise[:2]) <= hr < int(sunset[:2])
             h = {"et0_fao_evapotranspiration": rate if is_day else 0.0,
                  "precipitation_probability": prob, "precipitation": mm,
                  "is_day": int(is_day), "relative_humidity_2m": 60, "wind_speed_10m": 8,
-                 "weather_code": (codes or {}).get(hr, 2) if day == "2026-09-30" else 2}
+                 "weather_code": (codes or {}).get(hr, 2) if day == "2026-09-30" else 2,
+                 "temperature_2m": 16.0 if is_day else 11.0}
             h.update({{"rate": "et0_fao_evapotranspiration", "prob": "precipitation_probability",
-                       "mm": "precipitation"}.get(k, k): v
+                       "mm": "precipitation", "temp": "temperature_2m"}.get(k, k): v
                       for k, v in overrides.get(ts, {}).items()})
             hourly["time"].append(ts)
             for k, v in h.items():
@@ -44,11 +46,11 @@ def forecast(now="2026-09-30T10:00", rate=0.3, prob=0, mm=0.0, overrides=None,
                     "is_day": 1, "precipitation": 0.4 if raining_now else 0.0,
                     "wind_speed_10m": 9.0, "wind_gusts_10m": 20.0, "wind_direction_10m": 225},
         "hourly": hourly,
-        "daily": {"time": ["2026-09-30", "2026-10-01"], "weather_code": [2, 3],
-                  "temperature_2m_max": [19.4, 17.6], "temperature_2m_min": [10.5, 9.4],
-                  "sunrise": [f"2026-09-30T{sunrise}", f"2026-10-01T{sunrise}"],
-                  "sunset": [f"2026-09-30T{sunset}", f"2026-10-01T{sunset}"],
-                  "precipitation_probability_max": [prob, prob]},
+        "daily": {"time": list(days), "weather_code": [2, 3, 3],
+                  "temperature_2m_max": [19.4, 17.6, 17.0], "temperature_2m_min": [10.5, 9.4, 9.0],
+                  "sunrise": [f"{d}T{sunrise}" for d in days],
+                  "sunset": [f"{d}T{sunset}" for d in days],
+                  "precipitation_probability_max": [prob] * 3},
     }
 
 
@@ -215,6 +217,27 @@ class DaySummary(unittest.TestCase):
     def test_rain_chance_is_daytime_only(self):
         rain = {"2026-09-30T03:00": {"prob": 90}, "2026-09-30T13:00": {"prob": 30}}
         self.assertEqual(transform.run(forecast(overrides=rain))["today"]["rain"], 30)
+
+
+class NightLows(unittest.TestCase):
+    def test_low_is_the_coming_night_not_the_calendar_day(self):
+        temps = {"2026-09-30T04:00": {"temp": 6.0},     # last night: ignored
+                 "2026-10-01T05:00": {"temp": 8.4},     # tonight
+                 "2026-10-02T06:00": {"temp": 7.2}}     # tomorrow night
+        out = transform.run(forecast(overrides=temps))
+        self.assertEqual(out["today"]["lo"], 8)
+        self.assertEqual(out["tomorrow"]["lo"], 7)
+
+    def test_after_sunset_counts_from_now(self):
+        temps = {"2026-09-30T19:00": {"temp": 5.0}, "2026-10-01T05:00": {"temp": 9.0}}
+        out = transform.run(forecast(now="2026-09-30T21:00", overrides=temps))
+        self.assertEqual(out["today"]["lo"], 9)
+
+    def test_falls_back_to_daily_min_without_the_next_sunrise(self):
+        # The fixture has two days, so tomorrow night can't be bounded.
+        out = transform.run(json.loads((FIXTURES / "sunny_autumn.json").read_text()))
+        self.assertEqual(out["today"]["lo"], 13)     # tonight, from hourly temps
+        self.assertEqual(out["tomorrow"]["lo"], 13)  # daily min for 1 Oct (13.1)
 
 
 class Output(unittest.TestCase):

@@ -170,6 +170,7 @@ def build_hours(hourly):
             "day": bool(hourly["is_day"][i]),
             "wet": prob >= WET_PROB or mm >= WET_MM,
             "rh": hourly["relative_humidity_2m"][i],
+            "temp": (hourly.get("temperature_2m") or [None] * len(hourly["time"]))[i],
             "wind": hourly["wind_speed_10m"][i],
             "code": (hourly.get("weather_code") or [None] * len(hourly["time"]))[i],
         })
@@ -226,6 +227,13 @@ def day_summary(hours, rise, sset, fallback_code):
     if len(wet) >= 3:
         icon = describe(wet_code)[1]
     return text, icon
+
+
+def night_low(hours, after, until):
+    """Lowest temperature from `after` to `until` (sunset to next sunrise)."""
+    temps = [h["temp"] for h in hours
+             if h["temp"] is not None and after <= h["start"] + timedelta(hours=1) and h["start"] <= until]
+    return min(temps) if temps else None
 
 
 # ---- Washing engine ------------------------------------------------------
@@ -470,7 +478,14 @@ def run(input):
 
     days = []
     for i in range(min(2, len(daily["time"]))):
-        rise, sset = suns[parse(daily["time"][i]).date()]
+        date = parse(daily["time"][i]).date()
+        rise, sset = suns[date]
+        # "lo" is the coming night's low (sunset to next sunrise), which is
+        # what you plan blankets and windows around, not the calendar day's.
+        nxt = suns.get(date + timedelta(days=1))
+        lo = night_low(hours, max(sset, now), nxt[0]) if nxt else None
+        if lo is None:
+            lo = daily["temperature_2m_min"][i]
         text, icon = day_summary(hours, rise, sset, daily["weather_code"][i])
         day_probs = [h["prob"] for h in daylight(hours, rise, sset)]
         rain = max(day_probs) if day_probs else daily["precipitation_probability_max"][i] or 0
@@ -479,7 +494,7 @@ def run(input):
             "text": text,
             "icon": icon,
             "hi": rnd(daily["temperature_2m_max"][i]),
-            "lo": rnd(daily["temperature_2m_min"][i]),
+            "lo": rnd(lo),
             "rain": rnd(rain),
             "sunrise": hhmm(rise),
             "sunset": hhmm(sset),

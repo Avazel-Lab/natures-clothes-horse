@@ -25,7 +25,8 @@
           <span class="label label--underline">{{ day.name }}</span>
           <div class="nc-row nc-row--tight">
             <i class="wi {{ day.icon }} nc-wi nc-day-icon"></i>
-            <span class="value value--xsmall">{{ day.hi }}° / {{ day.lo }}°</span>
+            <span class="value value--xsmall">{{ day.hi }}°</span>
+            <span class="label">↓ {{ day.lo }}° {% if forloop.first %}tonight{% else %}night{% endif %}</span>
           </div>
           <span class="description">{{ day.text }}</span>
           <span class="description">Rain {{ day.rain }}%</span>
