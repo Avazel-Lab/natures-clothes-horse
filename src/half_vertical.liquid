@@ -1,0 +1,46 @@
+<div class="layout">
+{% if error %}
+  <span class="title">Couldn't get the forecast: {{ error }}</span>
+{% else %}
+  <div class="nc">
+    <div class="nc-row">
+      <i class="wi {{ now.icon }} nc-wi nc-now-icon"></i>
+      <div class="nc-col">
+        <span class="value value--large">{{ now.temp }}°</span>
+        <span class="label">{{ now.text }}</span>
+        <span class="description">Feels {{ now.feels }}° · {{ now.humidity }}% · {{ now.wind_dir }} {{ now.wind }} mph</span>
+      </div>
+    </div>
+    <div class="nc-row">
+      {% for d in (1..2) %}
+        {% if forloop.first %}{% assign day = today %}{% else %}{% assign day = tomorrow %}{% endif %}
+        <div class="nc-day nc-grow nc-col">
+          <span class="label label--underline">{{ day.name }}</span>
+          <span class="value value--xsmall"><i class="wi {{ day.icon }}"></i> {{ day.hi }}°/{{ day.lo }}°</span>
+          <span class="description">{{ day.text }} · {{ day.rain }}%</span>
+          <span class="description nc-sun"><i class="wi wi-sunrise"></i>{{ day.sunrise }} <i class="wi wi-sunset"></i>{{ day.sunset }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="nc-wash nc-wash--{{ wash.code }} nc-col" style="justify-content: center;">
+      <span class="value value--large">{{ wash.headline }}</span>
+      <span class="title">{{ wash.detail }}</span>
+      {% if wash.out_at %}<span class="label">Out {{ wash.out_at }}{% if wash.dry_by %} · dry {{ wash.dry_by }}{% endif %} · in by {{ wash.in_by }}</span>{% endif %}
+      {% if wash.why %}<span class="description">{{ wash.why | capitalize }}</span>{% endif %}
+    </div>
+    <div class="nc-chart" style="height: 90px;">
+      {% for b in chart.bars %}
+        <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}">
+          <div class="nc-bar-track"><div class="nc-bar-fill" style="height: {{ b.pct }}%;"></div></div>
+          <span class="nc-bar-hour label label--small">{{ b.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+</div>
+
+<div class="title_bar">
+  <span class="title">Washing</span>
+  <span class="instance">{{ now.time }}</span>
+</div>

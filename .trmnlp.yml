@@ -1,0 +1,18 @@
+# Local preview config for trmnlp (not uploaded to TRMNL).
+# Set WASHING_LOCATION="lat,lon" in your environment; it stays out of git.
+---
+watch:
+  - .trmnlp.yml
+  - src
+
+custom_fields:
+  location: "{{ env.WASHING_LOCATION }}"
+  load: normal
+
+time_zone: Europe/London
+transform_runtime: enabled
+
+variables:
+  trmnl:
+    plugin_settings:
+      instance_name: Washing

@@ -1,0 +1,35 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+<style>
+  .nc { display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%; }
+  .nc-row { display: flex; align-items: center; gap: 10px; }
+  .nc-grow { flex: 1 1 0; min-width: 0; }
+  .nc-col { display: flex; flex-direction: column; gap: 2px; }
+  .nc-wi { line-height: 1; text-align: center; }
+
+  /* Current conditions + today/tomorrow */
+  .nc-now-icon { font-size: 56px; width: 72px; }
+  .nc-day { border-left: 2px solid #000; padding-left: 12px; }
+  .nc-day-icon { font-size: 30px; width: 40px; }
+  .nc-sun i { font-size: 14px; margin-right: 2px; }
+
+  /* Washing verdict */
+  .nc-wash { flex: 1 1 0; border: 3px solid #000; border-radius: 10px; padding: 10px 20px; gap: 20px; }
+  .nc-wash--go { background: #000; }
+  .nc-wash--go * { color: #fff !important; }
+  .nc-wash-icon { font-size: 80px; line-height: 1; }
+  .nc-stat { text-align: center; min-width: 96px; align-items: center; }
+
+  /* Drying timeline */
+  .nc-chart { height: 190px; display: flex; gap: 4px; }
+  .nc-bar { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nc-bar-track { position: relative; width: 100%; flex: 1 1 0; border-bottom: 2px solid #000; }
+  .nc-bar-fill { position: absolute; bottom: 0; left: 10%; width: 80%; background: #aaa; }
+  .nc-bar--win .nc-bar-fill { background: #000; }
+  .nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #000 0 3px, #fff 3px 9px); border: 2px solid #000; min-height: 18px; }
+  .nc-bar-prob { min-height: 1.25em; }
+  .nc-bar--now .nc-bar-hour, .nc-bar--now .nc-bar-hour * { background: #000; color: #fff; border-radius: 4px; padding: 0 5px; }
+  .nc-key { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin: 0 3px 0 10px; }
+  .nc-key--win { background: #000; }
+  .nc-key--dry { background: #aaa; }
+  .nc-key--wet { background: repeating-linear-gradient(45deg, #000 0 2px, #fff 2px 5px); border: 1px solid #000; }
+</style>
