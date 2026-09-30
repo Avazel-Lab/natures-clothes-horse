@@ -1,7 +1,7 @@
 """Tests for the washing engine. Run: python3 -m unittest discover tests"""
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
 from pathlib import Path
 
@@ -648,6 +648,61 @@ class Icons(unittest.TestCase):
     def test_transform_stays_small(self):
         # TRMNL rejects a large transform.py (122 KB was refused; ~40 KB is fine).
         self.assertLess((ROOT / "src" / "transform.py").stat().st_size, 50_000)
+
+
+def nowcast(start, values):
+    """AROME 15-minute rain: each value is the 15 minutes *before* its time."""
+    t0 = datetime.fromisoformat(start)
+    times = [(t0 + timedelta(minutes=15 * (i + 1))).isoformat(timespec="minutes")
+             for i in range(len(values))]
+    return {"minutely_15": {"time": times, "precipitation": values}}
+
+
+class RainSoon(unittest.TestCase):
+    NOW = datetime(2026, 9, 30, 10, 5)
+
+    def soon(self, values, raining_now=False):
+        return transform.rain_soon(nowcast("2026-09-30T10:00", values), self.NOW, raining_now)
+
+    def test_warns_about_rain_within_the_hour(self):
+        # Rain in the 10:45-11:00 slot.
+        self.assertEqual(self.soon([0, 0, 0, 0.3, 0.5, 0.2]), "Rain expected about 10:45")
+
+    def test_quiet_when_rain_is_further_off(self):
+        self.assertIsNone(self.soon([0, 0, 0, 0, 0, 0.4]))    # 11:15: over an hour away
+        self.assertIsNone(self.soon([0] * 8))
+
+    def test_raining_now_and_easing(self):
+        self.assertEqual(self.soon([0.4, 0.4, 0.2, 0, 0]), "Raining now, easing about 10:45")
+        self.assertEqual(self.soon([0.4] * 12), "Raining now")
+        self.assertEqual(self.soon([0, 0, 0, 0], raining_now=True), "Raining now, easing about 10:05")
+
+    def test_trace_amounts_are_ignored(self):
+        self.assertIsNone(self.soon([0, 0.05, 0.05, 0]))
+
+    def test_missing_nowcast_means_no_warning(self):
+        self.assertIsNone(transform.rain_soon(None, self.NOW, False))
+        self.assertIsNone(transform.rain_soon({"minutely_15": {"time": ["2026-09-30T10:15"],
+                                                               "precipitation": [None]}}, self.NOW, False))
+
+    def test_two_polling_urls_arrive_as_idx(self):
+        data = forecast(rate=0.3)
+        out = transform.run({"IDX_0": data, "IDX_1": nowcast("2026-09-30T10:00", [0, 0.3, 0.3]),
+                             "trmnl": {"plugin_settings": {"custom_fields_values": {}}}})
+        self.assertEqual(out["wash"]["alert"], "Rain expected about 10:15")
+        # The next two hours follow the 15-minute forecast, so the verdict agrees.
+        self.assertEqual((out["wash"]["headline"], out["wash"]["detail"]), ("Wait", "Rain likely until 11:00"))
+        bar = out["chart"]["bars"][0]
+        self.assertEqual((bar["label"], bar["wet"], bar["nowcast"]), ("10", True, True))
+
+    def test_nowcast_only_decides_the_next_two_hours(self):
+        # Wet 15-minute slots at 10:15 and at 12:30: only the first is within 2 h.
+        values = [0] + [0.3] + [0] * 8 + [0.3]
+        hours = transform.build_hours(forecast(rate=0.3))
+        transform.apply_nowcast(hours, nowcast("2026-09-30T10:00", values), datetime(2026, 9, 30, 10, 5))
+        wet = sorted(h["start"].strftime("%H") for h in hours if h.get("nowcast"))
+        self.assertEqual(wet, ["10"])
+        self.assertIsNone(transform.run(forecast(rate=0.3))["wash"]["alert"])
 
 
 class Output(unittest.TestCase):

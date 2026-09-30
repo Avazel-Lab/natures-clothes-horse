@@ -71,6 +71,16 @@ Any hour with a 20%+ chance of rain shows the percentage, so the chart
 doubles as a "will I get wet going out?" guide. The table's Out time also
 gives the **latest** time to hang out a normal load, to the quarter hour.
 
+**Rain soon.** A second request gets Météo-France's AROME model at native
+15-minute steps (it covers southern England; the Met Office's 15-minute data
+is only its hourly figures spread out). When rain is due within the hour, a
+strip at the top of the verdict says so ("Rain expected about 19:15", or
+"Raining now, easing about 19:45"). For the next two hours this forecast
+decides which hours are wet, so the verdict, table and chart agree with it
+(those bars say "rain"); beyond that the hourly chance does. The plugin
+refreshes every 15 minutes, so a warning is seen several times before the
+rain arrives. Outside AROME's area there's simply no warning.
+
 The verdict explains itself: how long drying will take, when the rain
 arrives or clears, or why today is a write-off. If rain is due overnight it
 says so, in case the washing would otherwise stay out.

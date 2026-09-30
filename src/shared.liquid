@@ -34,6 +34,13 @@
   .nc-wash-icon { font-size: 80px; line-height: 1; }
   .nc-wash-icon--small { font-size: 44px; }
   .nc-row--wide { gap: 20px; }
+  /* Rain-soon warning: a black strip, or white on the black "go" box. */
+  .nc-alert { display: flex; align-items: center; gap: 8px; align-self: flex-start;
+              background: #000; border-radius: 6px; padding: 3px 12px; margin-bottom: 4px; }
+  .nc-alert, .nc-alert * { color: #fff !important; }
+  .nc-alert .nc-icon { font-size: 18px; }
+  .nc-wash--go .nc-alert { background: #fff; }
+  .nc-wash--go .nc-alert, .nc-wash--go .nc-alert * { color: #000 !important; }
   /* Today / Tomorrow table: day, out, light, normal, heavy, in by */
   .nc-plan { display: grid; grid-template-columns: auto repeat(5, 1fr); column-gap: 16px; row-gap: 4px;
              align-items: baseline; text-align: center; border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; }
@@ -83,7 +90,7 @@
   {% for b in chart.bars %}
     <div class="nc-bar{% if b.hang == "yes" %} nc-bar--hang{% elsif b.hang == "risky" %} nc-bar--risky{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.night %} nc-bar--night{% endif %}{% if b.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
       <div class="nc-bar-track">
-        {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob"><span class="label label--small nc-num">{{ b.prob }}<span class="nc-unit">%</span></span></span>{% endif %}{% endunless %}
+        {% unless small %}{% if b.nowcast %}<span class="nc-bar-prob"><span class="label label--small">rain</span></span>{% elsif b.prob >= 20 %}<span class="nc-bar-prob"><span class="label label--small nc-num">{{ b.prob }}<span class="nc-unit">%</span></span></span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>
       </div>
       <span class="nc-bar-hour label label--small">{% if b.tick %}{{ b.label }}{% elsif small %}&nbsp;{% else %}{{ b.label }}{% endif %}</span>

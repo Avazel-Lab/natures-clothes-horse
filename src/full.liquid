@@ -38,6 +38,7 @@
 
     <!-- Washing verdict -->
     <div class="nc-wash nc-wash--{{ wash.code }} nc-col nc-col--center">
+      {% if wash.alert %}<div class="nc-alert"><span class="nc-icon">{% render "icon", name: "wi-umbrella" %}</span><span class="title">{{ wash.alert }}</span></div>{% endif %}
       <div class="nc-row nc-row--wide">
         <span class="nc-icon nc-wash-icon">{% render "icon", name: wash.icon %}</span>
         <div class="nc-col nc-grow">
@@ -78,7 +79,7 @@
           <span class="nc-key nc-key--hang"></span>hang out a normal load
           <span class="nc-key nc-key--risky"></span>risky
           <span class="nc-key nc-key--dry"></span>too late to hang out
-          <span class="nc-key nc-key--wet"></span>rain likely (60%+)
+          <span class="nc-key nc-key--wet"></span>rain likely
         </span>
       </div>
       {% render "chart", chart: chart %}

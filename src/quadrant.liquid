@@ -9,6 +9,7 @@
       <span class="description nc-grow">{{ now.text }}<br>High {{ today.hi }}° · tonight {{ today.lo }}°</span>
     </div>
     <div class="nc-wash nc-wash--compact nc-wash--{{ wash.code }} nc-col nc-col--center">
+      {% if wash.alert %}<div class="nc-alert"><span class="nc-icon">{% render "icon", name: "wi-umbrella" %}</span><span class="title">{{ wash.alert }}</span></div>{% endif %}
       <span class="value value--small">{{ wash.headline }}</span>
       <span class="label">{{ wash.detail }}</span>
       <span class="description">{% render "wash_times", wash: wash %}</span>

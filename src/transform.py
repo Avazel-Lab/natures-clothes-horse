@@ -951,6 +951,7 @@ def timeline(hours, now, suns):
             "tick": h["start"].hour % 3 == 0 or h["start"] == first,
             "pct": min(100, rnd(h["rate"] / RATE_FULL * 100)) if h["day"] else 0,
             "prob": rnd(h["prob"]),
+            "nowcast": bool(h.get("nowcast")),
             "wet": h["wet"],
             "hang": hang_out(hours, h, now, suns),
             "night": not h["day"],
@@ -1004,7 +1005,64 @@ def garden_label(garden):
 
 # ---- Entry point ---------------------------------------------------------
 
+# ---- Rain soon -----------------------------------------------------------
+# A second request gets Météo-France's AROME model at native 15-minute steps
+# (the Met Office's 15-minute data is just its hourly figures spread out).
+# Short-range forecasting is where it's strongest, so for the next couple of
+# hours it decides which hours are wet (verdict, table and chart all follow);
+# beyond that the hourly rain chance does.
+SOON = timedelta(minutes=60)   # warn about rain starting within this
+SOON_MM = 0.1                  # mm in 15 minutes that counts as rain
+EASING_WITHIN = timedelta(hours=2)
+NOWCAST_HOURS = timedelta(hours=2)
+
+
+def nowcast_slots(nowcast, now):
+    """[(slot start, wet)] for 15-minute slots from now on."""
+    m15 = (nowcast or {}).get("minutely_15") or {}
+    times = m15.get("time") or []
+    key = next((k for k in m15 if k.startswith("precipitation")), None)
+    if not times or not key:
+        return []
+    # Each value is the rain in the 15 minutes *before* its timestamp.
+    slots = [(parse(t) - timedelta(minutes=15), (v or 0) >= SOON_MM)
+             for t, v in zip(times, m15[key]) if v is not None]
+    return [(start, wet) for start, wet in slots if start + timedelta(minutes=15) > now]
+
+
+def apply_nowcast(hours, nowcast, now):
+    """Mark hours in the next two that the 15-minute forecast says are wet."""
+    for start, wet in nowcast_slots(nowcast, now):
+        if not wet or start >= now + NOWCAST_HOURS:
+            continue
+        for h in hours:
+            if h["start"] <= start < h["start"] + timedelta(hours=1):
+                h["wet"] = h["nowcast"] = True
+
+
+def rain_soon(nowcast, now, raining_now):
+    """A short warning like "Rain expected about 19:15", or None."""
+    ahead = nowcast_slots(nowcast, now)
+    if not ahead:
+        return None
+    if raining_now or ahead[0][1]:
+        easing = next((start for start, wet in ahead if not wet), None)
+        if easing and easing - now <= EASING_WITHIN:
+            return f"Raining now, easing about {hhmm(max(easing, now))}"
+        return "Raining now"
+    start = next((start for start, wet in ahead if wet), None)
+    if start and start - now < SOON:
+        return f"Rain expected about {hhmm(start)}"
+    return None
+
+
 def run(input):
+    # With more than one polling URL, TRMNL nests each response as IDX_n:
+    # IDX_0 is the forecast, IDX_1 the 15-minute rain.
+    nowcast = None
+    if "IDX_0" in input:
+        nowcast = input.get("IDX_1")
+        input = dict(input["IDX_0"] or {}, trmnl=input.get("trmnl"))
     if "hourly" not in input:
         reason = input.get("reason") or "No forecast data"
         return {"error": reason}
@@ -1061,7 +1119,9 @@ def run(input):
         for h in hours:
             if h["start"] <= now < h["start"] + timedelta(hours=1):
                 h["wet"] = True
+    apply_nowcast(hours, nowcast, now)
     wash = washing(hours, now, suns, DRY_NEED[VERDICT_LOAD], raining_now)
+    wash["alert"] = rain_soon(nowcast, now, raining_now)
 
     win = wash["window"]
     wash["loads"] = []
