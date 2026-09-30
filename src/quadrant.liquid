@@ -4,7 +4,7 @@
 {% else %}
   <div class="nc">
     <div class="nc-row">
-      <i class="wi {{ now.icon }} nc-wi nc-now-icon--small"></i>
+      <span class="nc-icon nc-wi nc-now-icon--small">{{ now.icon }}</span>
       <span class="value value--small">{{ now.temp }}°</span>
       <span class="description nc-grow">{{ now.text }}<br>High {{ today.hi }}° · tonight {{ today.lo }}°</span>
     </div>

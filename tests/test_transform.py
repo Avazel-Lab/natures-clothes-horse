@@ -256,7 +256,7 @@ class DaySummary(unittest.TestCase):
         codes = {h: 2 for h in range(7, 15)} | {h: 80 for h in range(15, 19)}
         t = self.today(codes)
         self.assertEqual(t["text"], "Partly cloudy, then showers")
-        self.assertEqual(t["icon"], "wi-day-showers")
+        self.assertEqual(t["icon"], transform.icon_svg("wi-day-showers"))
 
     def test_a_single_shower_hour_is_ignored(self):
         codes = {h: 1 for h in range(7, 19)} | {13: 80}
@@ -531,6 +531,22 @@ class MissingData(unittest.TestCase):
         data["current"]["wind_direction_10m"] = None
         now = transform.run(data)["now"]
         self.assertEqual((now["temp"], now["wind_dir"]), ("–", ""))
+
+
+class Icons(unittest.TestCase):
+    def test_every_icon_the_plugin_can_show_is_embedded(self):
+        names = {"wi-sunrise", "wi-sunset", "wi-na", *transform.VERDICT_ICON.values()}
+        for _, day, night in transform.WMO.values():
+            names |= {day, night}
+        self.assertEqual(names - set(transform.ICONS), set())
+
+    def test_nothing_loads_from_a_cdn(self):
+        for template in (ROOT / "src").glob("*.liquid"):
+            self.assertNotIn("cdnjs", template.read_text(), template.name)
+            self.assertNotIn('class="wi ', template.read_text(), template.name)
+
+    def test_unknown_icon_falls_back(self):
+        self.assertEqual(transform.icon_svg("wi-nonsense"), transform.icon_svg("wi-na"))
 
 
 class Output(unittest.TestCase):

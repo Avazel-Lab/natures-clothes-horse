@@ -1,4 +1,3 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
 <style>
   .nc { display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%; }
   .nc--center { justify-content: center; align-items: center; }
@@ -13,6 +12,10 @@
   .nc-col--center { justify-content: center; }
   .nc-nowrap { white-space: nowrap; }
   .nc-wi { line-height: 1; text-align: center; }
+  /* Icons are inline SVG sized by font-size, coloured like the text. */
+  .nc-icon { display: inline-block; line-height: 1; vertical-align: middle; }
+  /* The SVGs leave more margin than the old icon font did, hence 1.4em. */
+  .nc-icon svg { width: 1.4em; height: 1.4em; fill: currentColor; display: block; margin: 0 auto; overflow: hidden; }
 
   /* Current conditions + today/tomorrow */
   .nc-now-icon { font-size: 56px; width: 72px; }

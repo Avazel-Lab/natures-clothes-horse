@@ -20,7 +20,9 @@ mashups.
   the forecast into a verdict (`go`, `risky`, `wait`, `tomorrow` or `no`) and a
   timeline of hourly drying strength.
 - **Screen:** Liquid templates in `src/` using the TRMNL framework, with
-  [Weather Icons](https://erikflowers.github.io/weather-icons/).
+  [Weather Icons](https://erikflowers.github.io/weather-icons/) by Erik
+  Flowers (SIL OFL 1.1), embedded as inline SVG in `src/transform.py` so
+  nothing is loaded from a CDN.
 
 ### The drying model
 
