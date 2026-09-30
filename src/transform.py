@@ -40,12 +40,18 @@ from datetime import datetime, timedelta
 DRY_NEED = {"light": 0.9, "normal": 1.3, "heavy": 1.9}
 VERDICT_LOAD = "normal"
 
-# An hour is wet if either is true.
-WET_PROB = 40       # % precipitation probability
-WET_MM = 0.2        # mm precipitation forecast in the hour
-
-# A dry window that still carries this much rain chance is "risky".
+# Rain is graded, not a yes/no cliff:
+# - an hour is "wet" (the washing must be in) if rain is likely: this chance
+#   or more, or this much rain forecast;
+WET_PROB = 60       # %
+WET_MM = 0.2        # mm in the hour
+# - below that, from this chance up, the washing stays out but the hour's
+#   drying is scaled by the chance it stays dry (35% -> 65% of the drying);
+SLOW_PROB = 20      # %
+# - and a window with this much chance of a shower in it is "risky".
 RISKY_PROB = 25     # %
+# Overnight is a long exposure, so warn about rain tonight from a lower chance.
+TONIGHT_PROB = 40   # %
 # Finishing less than this long before rain or sunset is "risky".
 MARGIN = timedelta(hours=1)
 # Below this fraction dry by the end of the window, it's not worth it.
@@ -621,10 +627,10 @@ def simulate(hours, start, need, sunset):
       stop_at  when it has to come in: first wet hour, or sunset
       stop_why "rain" or "sunset"
       done     fraction dry when it comes in (or 1.0)
-      max_prob highest rain chance while it's out
+      max_prob highest rain chance while it's out (max_prob_at: its hours)
     """
     got = 0.0
-    max_prob = 0
+    probs = []  # (chance, hour start) while it's out
     humid = []
     winds = []
     for h in hours:
@@ -632,17 +638,19 @@ def simulate(hours, start, need, sunset):
         if h_end <= start:
             continue
         if h["start"] >= sunset:
-            return _result(None, sunset, "sunset", got / need, max_prob, humid, winds)
+            return _result(None, sunset, "sunset", got / need, probs, humid, winds)
         if h["wet"]:
             stop = max(h["start"], start)
-            return _result(None, stop, "rain", got / need, max_prob, humid, winds)
+            return _result(None, stop, "rain", got / need, probs, humid, winds)
 
         # Only count the part of the hour that's after `start` and before sunset.
         seg_start = max(h["start"], start)
         seg_end = min(h_end, sunset)
         frac = (seg_end - seg_start).total_seconds() / 3600
         rate = h["rate"] if h["day"] else 0.0
-        max_prob = max(max_prob, h["prob"])
+        if h["prob"] >= SLOW_PROB:
+            rate *= 1 - h["prob"] / 100
+        probs.append((h["prob"], h["start"]))
         humid.append(h["rh"])
         winds.append(h["wind"])
 
@@ -650,9 +658,9 @@ def simulate(hours, start, need, sunset):
             dry_at = seg_start + timedelta(hours=(need - got) / rate)
             # Look ahead: when would it have to come in anyway?
             stop, why = next_stop(hours, dry_at, sunset)
-            return _result(dry_at, stop, why, 1.0, max_prob, humid, winds)
+            return _result(dry_at, stop, why, 1.0, probs, humid, winds)
         got += rate * frac
-    return _result(None, sunset, "sunset", got / need, max_prob, humid, winds)
+    return _result(None, sunset, "sunset", got / need, probs, humid, winds)
 
 
 def next_stop(hours, after, sunset):
@@ -666,13 +674,15 @@ def next_stop(hours, after, sunset):
     return sunset, "sunset"
 
 
-def _result(dry_at, stop_at, why, done, max_prob, humid, winds):
+def _result(dry_at, stop_at, why, done, probs, humid, winds):
+    max_prob = max((p for p, _ in probs), default=0)
     return {
         "dry_at": dry_at,
         "stop_at": stop_at,
         "stop_why": why,
         "done": min(done, 1.0),
         "max_prob": max_prob,
+        "max_prob_at": [t for p, t in probs if p == max_prob] if max_prob else [],
         "avg_rh": sum(humid) / len(humid) if humid else None,
         "avg_wind": sum(winds) / len(winds) if winds else None,
     }
@@ -728,7 +738,9 @@ def risky_reason(sim):
         if sim["stop_why"] == "rain":
             return "rain_close", f"Rain due {hhmm(sim['stop_at'])}, cutting it fine"
         return "sunset_close", "Only just dry by sunset"
-    return "shower_chance", f"{rnd(sim['max_prob'])}% chance of a shower"
+    at = sim["max_prob_at"]
+    when = f" at {hhmm(at[0])}" if len(at) == 1 else ""
+    return "shower_chance", f"{rnd(sim['max_prob'])}% chance of a shower{when}"
 
 
 def not_today_reason(today_sim, now, sunset, raining_now):
@@ -837,7 +849,7 @@ def no_drying_note(hours, after, sset):
 def rain_tonight(hours, sunset, next_sunrise):
     """First wet hour between sunset and the next sunrise, as a warning."""
     for h in hours:
-        if sunset <= h["start"] < next_sunrise and h["wet"]:
+        if sunset <= h["start"] < next_sunrise and (h["prob"] >= TONIGHT_PROB or h["mm"] >= WET_MM):
             return f"Rain from {hhmm(h['start'])} tonight, don't leave it out"
     return None
 

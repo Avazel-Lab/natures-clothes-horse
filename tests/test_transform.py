@@ -158,6 +158,38 @@ class Verdicts(unittest.TestCase):
         self.assertIsNone(w["out_at"])
 
 
+class GradedRain(unittest.TestCase):
+    def test_a_45_percent_hour_slows_drying_instead_of_ending_it(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 45}}))
+        self.assertEqual(w["code"], "risky")
+        self.assertEqual(w["in_by"], "19:00")            # not brought in at 12:00
+        # 10-12 at 0.3, 12-13 at 0.3 * 0.55, then 0.3/h: 1.3 mm at 14:47.
+        self.assertEqual(w["dry_by"], "14:47")
+        self.assertEqual(w["detail"], "45% chance of a shower at 12:00")
+
+    def test_likely_rain_still_brings_it_in(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 60}}))
+        self.assertEqual(w["code"], "wait")
+
+    def test_forecast_rain_amount_counts_whatever_the_chance(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 10, "mm": 0.5}}))
+        self.assertEqual(w["code"], "wait")
+
+    def test_small_chances_are_ignored(self):
+        w = wash(forecast(rate=0.3, overrides={"2026-09-30T12:00": {"prob": 15}}))
+        self.assertEqual((w["code"], w["dry_by"]), ("go", "14:20"))
+
+    def test_chart_hatches_only_likely_rain(self):
+        rain = {"2026-09-30T12:00": {"prob": 45}, "2026-09-30T13:00": {"prob": 65}}
+        bars = {b["label"]: b for b in transform.run(forecast(rate=0.3, overrides=rain))["chart"]["bars"]}
+        self.assertEqual((bars["12"]["wet"], bars["12"]["prob"]), (False, 45))
+        self.assertTrue(bars["13"]["wet"])
+
+    def test_tonight_warning_starts_at_40_percent(self):
+        self.assertIsNotNone(wash(forecast(rate=0.3, overrides={"2026-09-30T22:00": {"prob": 40}}))["tonight"])
+        self.assertIsNone(wash(forecast(rate=0.3, overrides={"2026-09-30T22:00": {"prob": 35}}))["tonight"])
+
+
 class Explanations(unittest.TestCase):
     def test_every_verdict_has_a_reason_code(self):
         rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}

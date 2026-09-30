@@ -33,8 +33,11 @@ it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
 1.9 mm. The verdict is for a normal load; the screen also shows when light
 and heavy loads would be dry if hung out at the same time.
 
-- An hour counts as **wet** if rain chance is ≥ 40% or ≥ 0.2 mm is forecast.
-  The washing has to come in before it.
+- Rain is graded. An hour is **wet** (rain likely: the washing has to come
+  in before it, and the chart hatches it) if the chance is ≥ 60% or ≥ 0.2 mm
+  is forecast. From 20% up to that, the washing stays out but the hour's
+  drying is scaled by the chance it stays dry, so a 35% hour gives 65% of
+  its drying. The overnight warning starts at 40%.
 - Drying stops at **sunset**.
 - **Risky** means it'll dry, but with less than an hour to spare before rain
   or sunset, or with a rain chance of 25% or more along the way. It also
