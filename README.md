@@ -55,10 +55,21 @@ load (or a light one if that's all that's possible). If nothing would dry,
 the row says why ("Too late today", "Rain most of the day"). Today's row
 always gives an **In by** time, for washing that's already out.
 
-The chart shows the **next 24 hours** from now: bar height is drying
-strength (none at night, marked by a black "night" band), rain-likely hours are hatched,
-and any hour with a 20%+ chance of rain shows the percentage, so it doubles
-as a "will I get wet going out?" guide.
+The chart shows the **next 24 hours** from now. Bar height is drying
+strength (none at night, marked by a black "night" band). The shading says
+what you can do in that hour:
+
+- **black:** hang out a normal load now and it'll be dry before it has to
+  come in;
+- **black/grey stripes:** you could, but it's risky (a shower chance while
+  it's out, or dry with under an hour to spare);
+- **grey:** drying still happens, so anything already out keeps drying, but
+  it's too late to hang out a new normal load;
+- **hatched:** rain likely (60%+).
+
+Any hour with a 20%+ chance of rain shows the percentage, so the chart
+doubles as a "will I get wet going out?" guide. The table's Out time also
+gives the **latest** time to hang out a normal load, to the quarter hour.
 
 The verdict explains itself: how long drying will take, when the rain
 arrives or clears, or why today is a write-off. If rain is due overnight it

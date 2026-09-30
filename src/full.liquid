@@ -57,7 +57,7 @@
         {% for row in wash.plan %}
           <span class="label nc-plan-day">{{ row.name }}</span>
           {% if row.out %}
-            <span class="value value--small">{{ row.out }}</span>
+            <span class="value value--small">{{ row.out }}{% if row.latest %}<span class="description nc-latest"> latest {{ row.latest }}</span>{% endif %}</span>
             {% for l in row.loads %}
               <span class="value value--small">{% if l.dry_by %}{{ l.dry_by }}{% else %}Won't dry{% endif %}</span>
             {% endfor %}
@@ -75,8 +75,9 @@
       <div class="nc-row nc-row--spread">
         <span class="label">Next 24 hours: drying strength and chance of rain</span>
         <span class="description">
-          <span class="nc-key nc-key--win"></span>washing out
-          <span class="nc-key nc-key--dry"></span>drying
+          <span class="nc-key nc-key--hang"></span>hang out a normal load
+          <span class="nc-key nc-key--risky"></span>risky
+          <span class="nc-key nc-key--dry"></span>too late to hang out
           <span class="nc-key nc-key--wet"></span>rain likely (60%+)
         </span>
       </div>

@@ -871,8 +871,14 @@ def load_times(hours, out, sunset):
 
 def plan_row(name, hours, start, sim, sunset):
     """One row of the Today/Tomorrow table for a given start."""
-    return {"name": name, "out": hhmm(start), "loads": load_times(hours, start, sunset),
+    return {"name": name, "out": hhmm(start), "latest": latest_text(hours, start, sunset),
+            "loads": load_times(hours, start, sunset),
             "in_by": hhmm(sim["stop_at"]), "in_why": sim["stop_why"], "note": None}
+
+
+def latest_text(hours, start, sunset):
+    latest = latest_start(hours, start, sunset)
+    return hhmm(latest) if latest and latest > quarter(start, up=True) else None
 
 
 def day_plan(name, hours, rise, sset):
@@ -902,24 +908,51 @@ def rain_tonight(hours, sunset, next_sunrise):
 CHART_HOURS = 24
 
 
-def timeline(hours, now, win):
+def hang_out(hours, h, now, suns):
+    """Could a normal load hung out at the start of this hour (or now, for the
+    current hour) be dry before it has to come in? "yes", "risky" or None."""
+    start = max(h["start"], now)
+    day = suns.get(start.date())
+    if not day or h["wet"] or not h["day"] or start < day[0] or start >= day[1]:
+        return None
+    sim = simulate(hours, start, DRY_NEED[VERDICT_LOAD], day[1])
+    if not sim["dry_at"]:
+        return None
+    return "risky" if is_risky(sim) else "yes"
+
+
+def latest_start(hours, start, sunset):
+    """Latest time (to the quarter hour) a normal load hung out from `start`
+    onwards would still be dry before it has to come in."""
+    need = DRY_NEED[VERDICT_LOAD]
+    t, last = quarter(start, up=True), None
+    while t < sunset:
+        if simulate(hours, t, need, sunset)["dry_at"]:
+            last = t
+        elif last:
+            break
+        t += timedelta(minutes=15)
+    return last
+
+
+def timeline(hours, now, suns):
     """One bar per hour for the next 24 hours, starting with the current one.
 
     Bar height is drying strength (zero at night); rain chance rides on top.
+    Black bars are hours you could hang out a normal load and have it dry.
     """
     first = now.replace(minute=0, second=0, microsecond=0)
     bars = []
     for h in hours:
         if not first <= h["start"] < first + timedelta(hours=CHART_HOURS):
             continue
-        in_win = bool(win) and win["start"] < h["start"] + timedelta(hours=1) and h["start"] < win["end"]
         bars.append({
             "label": h["start"].strftime("%H"),
             "tick": h["start"].hour % 3 == 0 or h["start"] == first,
             "pct": min(100, rnd(h["rate"] / RATE_FULL * 100)) if h["day"] else 0,
             "prob": rnd(h["prob"]),
             "wet": h["wet"],
-            "win": in_win,
+            "hang": hang_out(hours, h, now, suns),
             "night": not h["day"],
             "now": h["start"] == first,
             "night_label": False,
@@ -1055,6 +1088,8 @@ def run(input):
     if win:
         rows[win["start"].date()] = {"name": "Today" if win["start"].date() == today else "Tomorrow",
                                      "out": wash["out_at"], "loads": wash["loads"],
+                                     "latest": latest_text(hours, win["start"], suns[win["start"].date()][1])
+                                               if wash["dry_by"] else None,
                                      "in_by": wash["in_by"], "in_why": wash["in_why"], "note": None}
     if today not in rows:
         rise, sunset = suns[today]
@@ -1085,7 +1120,7 @@ def run(input):
         rows[tomorrow] = day_plan("Tomorrow", hours, *suns[tomorrow])
     wash["plan"] = [rows[d] for d in sorted(rows)]
 
-    bars = timeline(hours, now, wash["window"])
+    bars = timeline(hours, now, suns)
     wash["window"] = None  # datetimes aren't JSON; the bars carry it now
 
     text, icon = describe(cur.get("weather_code"), is_day)

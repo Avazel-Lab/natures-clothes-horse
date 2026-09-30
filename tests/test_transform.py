@@ -132,9 +132,10 @@ class Verdicts(unittest.TestCase):
         data = forecast(now="2026-09-30T21:00", rate=0.3)
         out = transform.run(data)
         self.assertEqual(out["wash"]["code"], "tomorrow")
-        # The chart runs through the night into tomorrow's window.
-        win = [b["label"] for b in out["chart"]["bars"] if b["win"]]
-        self.assertEqual(win, ["07", "08", "09", "10", "11"])
+        # The chart runs through the night into tomorrow: a normal load (4h20)
+        # can go out from 07:00 until 14:40 and be dry by the 19:00 sunset.
+        hang = [b["label"] for b in out["chart"]["bars"] if b["hang"]]
+        self.assertEqual(hang, ["07", "08", "09", "10", "11", "12", "13", "14"])
 
     def test_before_sunrise_says_out_at_sunrise(self):
         w = wash(forecast(now="2026-09-30T06:15", rate=0.3))
@@ -463,6 +464,30 @@ class Garden(unittest.TestCase):
         self.assertIsNone(transform.run(reading())["garden"])
 
 
+class HangOut(unittest.TestCase):
+    def test_latest_time_to_hang_out(self):
+        today = {r["name"]: r for r in wash(forecast(rate=0.3))["plan"]}["Today"]
+        # 1.3 mm at 0.3 mm/h is 4h20: 14:40 for a 19:00 sunset, to the quarter.
+        self.assertEqual((today["out"], today["latest"]), ("Now", "14:30"))
+
+    def test_rain_later_brings_the_latest_forward(self):
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(17, 19)}
+        today = {r["name"]: r for r in wash(forecast(rate=0.3, overrides=rain))["plan"]}["Today"]
+        self.assertEqual(today["latest"], "12:30")  # dry by 17:00 rain
+
+    def test_risky_hours_are_marked(self):
+        # A 30% chance at 16:00: loads hung out from 12:00 would still be out then.
+        rain = {"2026-09-30T16:00": {"prob": 30}}
+        bars = {b["label"]: b["hang"] for b in transform.run(forecast(rate=0.3, overrides=rain))["chart"]["bars"]}
+        self.assertEqual((bars["10"], bars["11"], bars["12"]), ("yes", "yes", "risky"))
+
+    def test_no_hanging_out_in_rain_or_dark(self):
+        rain = {"2026-09-30T11:00": {"prob": 80}}
+        bars = {b["label"]: b["hang"] for b in transform.run(forecast(rate=0.3, overrides=rain))["chart"]["bars"]}
+        self.assertIsNone(bars["11"])
+        self.assertIsNone(bars["22"])
+
+
 class PlanTable(unittest.TestCase):
     def plan(self, **kw):
         return {r["name"]: r for r in wash(forecast(rate=0.3, **kw))["plan"]}
@@ -640,7 +665,11 @@ class Output(unittest.TestCase):
         bars = transform.run(forecast(rate=0.3, now="2026-09-30T10:20"))["chart"]["bars"]
         self.assertEqual(len(bars), 24)
         self.assertEqual((bars[0]["label"], bars[0]["now"], bars[-1]["label"]), ("10", True, "09"))
-        self.assertEqual([b["label"] for b in bars if b["win"]], ["10", "11", "12", "13", "14"])
+        # Hang-out hours: now (10:20) until the last start that dries by 19:00;
+        # 14:00 is risky (dry 18:20, under an hour before sunset).
+        today = {b["label"]: b["hang"] for b in bars[:9]}
+        self.assertEqual([today[h] for h in ("10", "11", "12", "13", "14", "15")],
+                         ["yes", "yes", "yes", "yes", "risky", None])
         # 19:00-06:00 is night (06:00-07:00 contains sunrise): no drying.
         night = [b["label"] for b in bars if b["night"]]
         self.assertEqual((night[0], night[-1], len(night)), ("19", "05", 11))
