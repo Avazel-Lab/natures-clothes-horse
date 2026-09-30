@@ -780,6 +780,28 @@ def load_times(hours, out, sunset):
     return loads
 
 
+def plan_row(name, hours, start, sim, sunset):
+    """One row of the Today/Tomorrow table for a given start."""
+    return {"name": name, "out": hhmm(start), "loads": load_times(hours, start, sunset),
+            "in_by": hhmm(sim["stop_at"]), "in_why": sim["stop_why"], "note": None}
+
+
+def day_plan(name, hours, rise, sset):
+    """Earliest start on a day that dries a normal load (or failing that, a
+    light one), with every load's dry-by time. Or a note saying why not."""
+    for load in (VERDICT_LOAD, "light"):
+        start, sim = first_good_start(hours, rise, DRY_NEED[load], sset)
+        if start:
+            return plan_row(name, hours, start, sim, sset)
+    return {"name": name, "out": None, "loads": [], "in_by": None, "in_why": None,
+            "note": no_drying_note(hours, rise, sset)}
+
+
+def no_drying_note(hours, after, sset):
+    wet = [h for h in hours if after <= h["start"] + timedelta(hours=1) and h["start"] < sset and h["wet"]]
+    return "Rain most of the day" if len(wet) >= 4 else "Too little drying"
+
+
 def rain_tonight(hours, sunset, next_sunrise):
     """First wet hour between sunset and the next sunrise, as a warning."""
     for h in hours:
@@ -911,6 +933,36 @@ def run(input):
             shade = shade_text(*suns[out_day], geo, garden)
             if shade:
                 wash["why"] = f"{wash['why']}, {shade}"
+
+    # Today and tomorrow rows for the table under the verdict. A row the
+    # verdict already covers uses the verdict's times.
+    today, tomorrow = now.date(), now.date() + timedelta(days=1)
+    rows = {}
+    if win:
+        rows[win["start"].date()] = {"name": "Today" if win["start"].date() == today else "Tomorrow",
+                                     "out": wash["out_at"], "loads": wash["loads"],
+                                     "in_by": wash["in_by"], "in_why": wash["in_why"], "note": None}
+    if today not in rows:
+        rise, sunset = suns[today]
+        out = max(now, rise)
+        if now < sunset and not raining_now:
+            row = plan_row("Today", hours, out, simulate(hours, out, DRY_NEED[VERDICT_LOAD], sunset), sunset)
+            if any(l["dry_by"] for l in row["loads"]):
+                row["out"] = "Now" if out == now else row["out"]
+                rows[today] = row
+    if today not in rows:
+        sunset = suns[today][1]
+        if now + MARGIN >= sunset or wash["detail"].startswith(("Not enough", "Too late")):
+            note = "Too late today"
+        elif wash["detail"].startswith("Rain from"):
+            note = "Nothing dries before the rain"
+        else:
+            note = no_drying_note(hours, now, sunset)
+        rows[today] = {"name": "Today", "out": None, "loads": [], "in_by": None, "in_why": None,
+                       "note": note}
+    if tomorrow not in rows and tomorrow in suns:
+        rows[tomorrow] = day_plan("Tomorrow", hours, *suns[tomorrow])
+    wash["plan"] = [rows[d] for d in sorted(rows)]
 
     # Chart today's daylight; after sunset, chart tomorrow instead.
     chart_day = now.date()

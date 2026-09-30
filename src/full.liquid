@@ -47,27 +47,26 @@
           {% if wash.tonight %}<span class="label">{{ wash.tonight }}</span>{% endif %}
         </div>
       </div>
-      {% if wash.out_at %}
-        <div class="nc-row nc-stats">
-          <div class="nc-col nc-stat">
-            <span class="label">Out{% if wash.when == "tomorrow" %} tomorrow{% endif %}</span>
-            <span class="value value--small">{{ wash.out_at }}</span>
-          </div>
-          <div class="nc-stats-rule"></div>
-          {% for l in wash.loads %}
-            <div class="nc-col nc-stat">
-              <span class="label">{{ l.name }} dry</span>
+      <div class="nc-plan">
+        <span></span>
+        <span class="label">Out</span>
+        <span class="label">Light dry</span>
+        <span class="label">Normal dry</span>
+        <span class="label">Heavy dry</span>
+        <span class="label">In by</span>
+        {% for row in wash.plan %}
+          <span class="label nc-plan-day">{{ row.name }}</span>
+          {% if row.out %}
+            <span class="value value--small">{{ row.out }}</span>
+            {% for l in row.loads %}
               <span class="value value--small">{% if l.dry_by %}{{ l.dry_by }}{% else %}Won't dry{% endif %}</span>
-            </div>
-          {% endfor %}
-          <div class="nc-stats-rule"></div>
-          <div class="nc-col nc-stat">
-            <span class="label">In by</span>
-            <span class="value value--small">{{ wash.in_by }}</span>
-            <span class="description">{% if wash.in_why == "rain" %}rain{% else %}sunset{% endif %}</span>
-          </div>
-        </div>
-      {% endif %}
+            {% endfor %}
+            <span class="value value--small">{{ row.in_by }} <span class="description">{{ row.in_why }}</span></span>
+          {% else %}
+            <span class="title nc-plan-note">{{ row.note }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
     </div>
 
     <!-- Drying timeline -->

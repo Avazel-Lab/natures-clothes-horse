@@ -369,6 +369,40 @@ class Garden(unittest.TestCase):
         self.assertIsNone(transform.run(reading())["garden"])
 
 
+class PlanTable(unittest.TestCase):
+    def plan(self, **kw):
+        return {r["name"]: r for r in wash(forecast(rate=0.3, **kw))["plan"]}
+
+    def test_today_follows_the_verdict_and_tomorrow_gets_its_own_times(self):
+        p = self.plan()
+        self.assertEqual(p["Today"]["out"], "Now")
+        self.assertEqual(p["Tomorrow"]["out"], "07:00")
+        self.assertEqual([l["dry_by"] for l in p["Tomorrow"]["loads"]], ["10:00", "11:20", "13:20"])
+
+    def test_tomorrow_falls_back_to_a_light_load(self):
+        # Rain from 11:00 tomorrow: a normal load (dry 11:20) can't make it, a light one can.
+        rain = {f"2026-10-01T{h}:00": {"prob": 80} for h in range(11, 19)}
+        tomorrow = self.plan(overrides=rain)["Tomorrow"]
+        self.assertEqual([l["dry_by"] for l in tomorrow["loads"]], ["10:00", None, None])
+        self.assertEqual((tomorrow["in_by"], tomorrow["in_why"]), ("11:00", "rain"))
+
+    def test_today_shows_partial_times_when_something_still_dries(self):
+        # Rain from 14:00, now 10:00: a normal load won't finish, a light one will.
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
+        today = self.plan(overrides=rain)["Today"]
+        self.assertEqual(today["out"], "Now")
+        self.assertEqual([l["dry_by"] for l in today["loads"]], ["13:00", None, None])
+
+    def test_notes_when_nothing_dries(self):
+        self.assertEqual(self.plan(now="2026-09-30T16:30")["Today"]["note"], "Too late today")
+        rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in range(14, 19)}
+        self.assertEqual(self.plan(now="2026-09-30T12:00", overrides=rain)["Today"]["note"],
+                         "Nothing dries before the rain")
+        wet = self.plan(prob=90)
+        self.assertEqual((wet["Today"]["note"], wet["Tomorrow"]["note"]),
+                         ("Rain most of the day", "Rain most of the day"))
+
+
 class Mowing(unittest.TestCase):
     def mow(self, **kw):
         return transform.run(forecast(**kw))

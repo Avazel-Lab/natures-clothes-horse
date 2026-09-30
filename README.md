@@ -39,6 +39,12 @@ and heavy loads would be dry if hung out at the same time.
   or sunset, or with a rain chance of 25% or more along the way. It also
   covers days where the washing gets at least 60% dry.
 
+Under the verdict, a small table gives **Today** and **Tomorrow** rows: when
+to put it out, when light, normal and heavy loads would be dry, and when it
+has to come in. Tomorrow's row uses the earliest start that dries a normal
+load (or a light one if that's all that's possible). If nothing would dry,
+the row says why ("Too late today", "Rain most of the day").
+
 The verdict explains itself: how long drying will take, when the rain
 arrives or clears, or why today is a write-off. If rain is due overnight it
 says so, in case the washing would otherwise stay out.

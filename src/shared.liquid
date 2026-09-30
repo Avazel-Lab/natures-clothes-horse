@@ -29,13 +29,16 @@
   .nc-wash-icon { font-size: 80px; line-height: 1; }
   .nc-wash-icon--small { font-size: 44px; }
   .nc-row--wide { gap: 20px; }
-  .nc-stats { justify-content: space-around; border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; }
-  .nc-wash--go .nc-stats, .nc-wash--go .nc-stats-rule { border-color: #fff; }
-  .nc-stats-rule { align-self: stretch; border-left: 2px solid #000; }
-  .nc-stat { text-align: center; min-width: 96px; align-items: center; }
+  /* Today / Tomorrow table: day, out, light, normal, heavy, in by */
+  .nc-plan { display: grid; grid-template-columns: auto repeat(5, 1fr); column-gap: 16px; row-gap: 4px;
+             align-items: baseline; text-align: center; border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; }
+  .nc-wash--go .nc-plan { border-color: #fff; }
+  .nc-plan > * { justify-self: center; }
+  .nc-plan > .nc-plan-day { justify-self: start; }
+  .nc-plan-note { grid-column: 2 / -1; }
 
   /* Drying timeline. Each bar sets --pct inline, from the data. */
-  .nc-chart { height: 190px; display: flex; gap: 4px; }
+  .nc-chart { height: 150px; display: flex; gap: 4px; }
   .nc-chart--small { height: 90px; }
   .nc-bar { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .nc-bar-track { position: relative; width: 100%; flex: 1 1 0; border-bottom: 2px solid #000; }
