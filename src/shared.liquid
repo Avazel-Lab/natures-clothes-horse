@@ -51,7 +51,10 @@
   .nc-bar-fill { position: absolute; bottom: 0; left: 8%; width: 84%; height: var(--pct); background: #aaa; }
   .nc-bar--win .nc-bar-fill { background: #000; }
   .nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #000 0 3px, #fff 3px 9px); border: 2px solid #000; min-height: 18px; }
-  .nc-bar-prob { position: absolute; left: -4px; right: -4px; bottom: max(var(--pct), 18px); text-align: center; padding-bottom: 2px; white-space: nowrap; }
+  /* Digits centred on the bar; the unit hangs off to the right. */
+  .nc-bar-prob { position: absolute; left: 0; right: 0; bottom: max(var(--pct), 18px); display: flex; justify-content: center; padding-bottom: 2px; white-space: nowrap; }
+  .nc-num { position: relative; display: inline-block; }
+  .nc-unit { position: absolute; left: 100%; top: 0; margin-left: 1px; }
   .nc-bar--now .nc-bar-hour { background: #000; color: #fff; border-radius: 4px; padding: 0 5px; }
   .nc-key { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin: 0 3px 0 10px; }
   .nc-key--win { background: #000; }
@@ -78,7 +81,7 @@
   {% for b in chart.bars %}
     <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.night %} nc-bar--night{% endif %}{% if b.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
       <div class="nc-bar-track">
-        {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob label label--small">{{ b.prob }}%</span>{% endif %}{% endunless %}
+        {% unless small %}{% if b.prob >= 20 or b.wet %}<span class="nc-bar-prob"><span class="label label--small nc-num">{{ b.prob }}<span class="nc-unit">%</span></span></span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>
       </div>
       <span class="nc-bar-hour label label--small">{% if b.tick %}{{ b.label }}{% elsif small %}&nbsp;{% else %}{{ b.label }}{% endif %}</span>

@@ -190,6 +190,32 @@ class GradedRain(unittest.TestCase):
         self.assertIsNone(wash(forecast(rate=0.3, overrides={"2026-09-30T22:00": {"prob": 35}}))["tonight"])
 
 
+class WindWords(unittest.TestCase):
+    def why(self, wind, fields=None):
+        data = forecast(rate=0.3, overrides={f"2026-09-{d}T{h:02d}:00": {"wind_speed_10m": wind}
+                                             for d in ("30",) for h in range(24)})
+        data["hourly"]["wind_direction_10m"] = [315] * len(data["hourly"]["time"])
+        if fields:
+            with_garden(data, fields)
+        return wash(data)["why"]
+
+    def test_forecast_wind_in_forecast_words(self):
+        self.assertIn("calm", self.why(2))
+        self.assertIn("light winds", self.why(6))
+        self.assertIn("breezy", self.why(10))
+        self.assertIn("windy", self.why(18))
+
+    def test_sheltered_line_is_said_separately(self):
+        # A north-westerly straight over the house 4 m away: 40% reaches the
+        # line. (Needs a real forecast: the garden applies with radiation data.)
+        def why(fields):
+            data = reading()
+            data["hourly"]["wind_direction_10m"] = [315] * len(data["hourly"]["time"])
+            return transform.run(with_garden(data, fields))["wash"]["why"]
+        self.assertIn("breezy, sheltered line", why(HOUSE_NW))
+        self.assertNotIn("sheltered", why({}))
+
+
 class Explanations(unittest.TestCase):
     def test_every_verdict_has_a_reason_code(self):
         rain = {f"2026-09-30T{h}:00": {"prob": 80} for h in ("11", "12")}

@@ -653,7 +653,7 @@ def simulate(hours, start, need, sunset):
             rate *= 1 - h["prob"] / 100
         probs.append((h["prob"], h["start"]))
         humid.append(h["rh"])
-        winds.append(h["wind"])
+        winds.append((h["open_wind"], h["wind"]))
 
         if rate > 0 and got + rate * frac >= need:
             dry_at = seg_start + timedelta(hours=(need - got) / rate)
@@ -685,7 +685,10 @@ def _result(dry_at, stop_at, why, done, probs, humid, winds):
         "max_prob": max_prob,
         "max_prob_at": [t for p, t in probs if p == max_prob] if max_prob else [],
         "avg_rh": sum(humid) / len(humid) if humid else None,
-        "avg_wind": sum(winds) / len(winds) if winds else None,
+        # Forecast (open) wind, and the share of it that reaches the line.
+        "avg_wind": sum(o for o, _ in winds) / len(winds) if winds else None,
+        "line_share": (sum(w for _, w in winds) / sum(o for o, _ in winds))
+                      if winds and sum(o for o, _ in winds) > 0 else 1.0,
     }
 
 
@@ -696,7 +699,12 @@ def why_text(sim):
     if rh is not None:
         bits.append("dry air" if rh < 60 else "humid" if rh > 80 else None)
     if wind is not None:
-        bits.append("breezy" if wind >= 8 else "still air" if wind < 4 else None)
+        # Describe the forecast wind like a forecast would, then say if the
+        # garden takes much of it away.
+        bits.append("calm" if wind < 4 else "light winds" if wind < 8 else
+                    "breezy" if wind < 15 else "windy")
+        if sim["line_share"] < 0.6:
+            bits.append("sheltered line")
     if sim["max_prob"] < 15 and sim["stop_why"] != "rain":
         bits.append("low rain risk")  # higher chances are in the headline or chart
     return ", ".join(b for b in bits if b)
