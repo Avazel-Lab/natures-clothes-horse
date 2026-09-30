@@ -416,7 +416,7 @@ def build_hours(data, garden=None):
         start = end - timedelta(hours=1)
         prob = hourly["precipitation_probability"][i] or 0
         mm = hourly["precipitation"][i] or 0
-        wind_mph = mid(wind, i, j) or 0
+        wind_mph = open_wind = mid(wind, i, j) or 0
         shade = 0.0
 
         if own_et0:
@@ -445,6 +445,7 @@ def build_hours(data, garden=None):
             "rh": mid(rh, i, j),
             "temp": temp[j],
             "wind": wind_mph,
+            "open_wind": open_wind,
             "code": code[j],
             "shade": shade,
         })
@@ -511,10 +512,34 @@ MOW_RAIN_BASE = 0.4     # water left by any rain, mm of ET0 to clear
 MOW_RAIN_PER_MM = 0.15  # extra per mm of rain (soggy ground)
 MOW_RAIN_MAX = 2.5      # cap: a very wet day takes the next day to recover
 MOW_DEW = 0.3           # dew on a humid night
-MOW_DEW_RH = 90         # % RH at night that means dew
+MOW_DEW_RH = 90         # % RH overnight that means dew by morning
 MOW_RAIN_PROB = 50      # % chance that counts as rain for the lawn
 MOW_MIN = timedelta(hours=2)          # shortest window worth showing
-MOW_STOP_BEFORE_SUNSET = timedelta(hours=1)  # evening dew, and light
+
+# Evening dew: grass cools as the sun drops and gets damp once the air is
+# humid enough, sooner when it's calm and clear. We look at the last two
+# hours before sunset and stop at the first one that crosses the humidity
+# threshold for its wind and sky; otherwise mowing runs until sunset.
+DEW_LOOKBACK = timedelta(hours=2)
+
+
+def dew_rh(wind_mph, clear):
+    """Humidity (%) at which evening dew forms, for this wind and sky."""
+    if wind_mph < 5:
+        return 75 if clear else 82
+    if wind_mph < 10:
+        return 82 if clear else 88
+    return 92
+
+
+def evening_stop(hours, sset):
+    """When evening dew is likely to end mowing: sunset, or earlier."""
+    for h in hours:
+        if sset - DEW_LOOKBACK <= h["start"] < sset:
+            clear = h["code"] is not None and h["code"] <= 1
+            if (h["rh"] or 0) >= dew_rh(h["open_wind"], clear):
+                return h["start"]
+    return sset
 
 
 def mow_window(hours, rise, sset, after):
@@ -524,7 +549,7 @@ def mow_window(hours, rise, sset, after):
     """
     water = MOW_DEW
     best, cur = None, None
-    stop = sset - MOW_STOP_BEFORE_SUNSET
+    stop = evening_stop(hours, sset)
     for h in hours:
         if h["start"] >= stop:
             break
@@ -852,7 +877,7 @@ def run(input):
         mow = mow_window(hours, rise, sset, max(now, rise))
         if mow:
             mow_text = f"Mow {hhmm(quarter(mow[0], up=True))}–{hhmm(quarter(mow[1]))}"
-        elif now >= sset - MOW_STOP_BEFORE_SUNSET:
+        elif now + MOW_MIN > evening_stop(hours, sset):
             mow_text = "Too late to mow"
         else:
             mow_text = "Too wet to mow"

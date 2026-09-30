@@ -92,8 +92,10 @@ Each day box shows the longest spell (at least 2 hours) when the lawn should
 be dry enough to mow, e.g. "Mow 11:00–17:30", or "Too wet to mow". The lawn
 holds some water that open-ground drying has to clear: any rain leaves 0.4 mm
 plus 0.15 mm per mm of rain (soggy ground takes longer), capped at 2.5 mm, and
-a humid night (RH ≥ 90%) leaves 0.3 mm of dew. Mowing stops an hour before
-sunset. It assumes a typical lawn (a few cm long); the numbers are in the
+a humid night (RH ≥ 90%) leaves 0.3 mm of dew. In the evening, mowing runs
+until sunset unless dew is likely first: in the last two hours before
+sunset it stops at the first hour humid enough for dew, which is 75-92% RH
+depending on wind and cloud (calm, clear evenings dew soonest). It assumes a typical lawn (a few cm long); the numbers are in the
 Mowing block of `src/transform.py`. The forecast includes the previous day so
 yesterday's rain counts.
 

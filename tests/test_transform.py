@@ -373,20 +373,33 @@ class Mowing(unittest.TestCase):
     def mow(self, **kw):
         return transform.run(forecast(**kw))
 
-    def test_dry_day_mows_from_now_until_an_hour_before_sunset(self):
+    def test_dry_breezy_evening_mows_until_sunset(self):
         out = self.mow(rate=0.3)
-        self.assertEqual(out["today"]["mow"], "Mow 10:00–18:00")
-        self.assertEqual(out["tomorrow"]["mow"], "Mow 07:00–18:00")
+        self.assertEqual(out["today"]["mow"], "Mow 10:00–19:00")
+        self.assertEqual(out["tomorrow"]["mow"], "Mow 07:00–19:00")
+
+    def test_humid_evening_dew_ends_mowing_early(self):
+        # 90% RH from 17:00 in an 8 mph wind under part cloud (threshold 88%).
+        dew = {f"2026-09-30T{h}:00": {"relative_humidity_2m": 90} for h in ("17", "18", "19")}
+        self.assertEqual(self.mow(rate=0.3, overrides=dew)["today"]["mow"], "Mow 10:00–17:00")
+
+    def test_calm_clear_evening_dews_at_lower_humidity(self):
+        evening = {f"2026-09-30T{h}:00": {"relative_humidity_2m": 80, "wind_speed_10m": 3,
+                                          "weather_code": 0} for h in ("17", "18", "19")}
+        self.assertEqual(self.mow(rate=0.3, overrides=evening)["today"]["mow"], "Mow 10:00–17:00")
+        # Same humidity with a breeze: no dew, mow until sunset.
+        breezy = {k: dict(v, wind_speed_10m=12) for k, v in evening.items()}
+        self.assertEqual(self.mow(rate=0.3, overrides=breezy)["today"]["mow"], "Mow 10:00–19:00")
 
     def test_dew_after_a_humid_night(self):
         night = {f"2026-10-01T{h:02d}:00": {"relative_humidity_2m": 95} for h in range(0, 7)}
         # 0.3 mm of dew at 0.3 mm/h: dry after the first hour of daylight.
-        self.assertEqual(self.mow(rate=0.3, overrides=night)["tomorrow"]["mow"], "Mow 08:00–18:00")
+        self.assertEqual(self.mow(rate=0.3, overrides=night)["tomorrow"]["mow"], "Mow 08:00–19:00")
 
     def test_heavy_morning_rain_delays_mowing(self):
         rain = {f"2026-09-30T{h}:00": {"mm": 5.0} for h in ("09", "10")}
         # 0.4 + 0.15 * 5 = 1.15 mm to dry at 0.3 mm/h: dry after 4 hours.
-        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Mow 15:00–18:00")
+        self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Mow 15:00–19:00")
 
     def test_wet_all_day(self):
         self.assertEqual(self.mow(rate=0.3, prob=80)["today"]["mow"], "Too wet to mow")
@@ -396,10 +409,11 @@ class Mowing(unittest.TestCase):
         self.assertEqual(self.mow(rate=0.3, overrides=rain)["today"]["mow"], "Too wet to mow")
 
     def test_too_late_today(self):
-        self.assertEqual(self.mow(now="2026-09-30T18:30", rate=0.3)["today"]["mow"], "Too late to mow")
+        # Under two hours left before sunset.
+        self.assertEqual(self.mow(now="2026-09-30T17:30", rate=0.3)["today"]["mow"], "Too late to mow")
 
     def test_window_starts_on_a_quarter_hour(self):
-        self.assertEqual(self.mow(now="2026-09-30T13:05", rate=0.3)["today"]["mow"], "Mow 13:15–18:00")
+        self.assertEqual(self.mow(now="2026-09-30T13:05", rate=0.3)["today"]["mow"], "Mow 13:15–19:00")
 
 
 class PastDay(unittest.TestCase):
