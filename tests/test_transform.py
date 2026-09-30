@@ -132,8 +132,9 @@ class Verdicts(unittest.TestCase):
         data = forecast(now="2026-09-30T21:00", rate=0.3)
         out = transform.run(data)
         self.assertEqual(out["wash"]["code"], "tomorrow")
-        self.assertEqual(out["chart"]["day"], "Tomorrow")
-        self.assertIsNone(out["chart"]["now"])
+        # The chart runs through the night into tomorrow's window.
+        win = [b["label"] for b in out["chart"]["bars"] if b["win"]]
+        self.assertEqual(win, ["07", "08", "09", "10", "11"])
 
     def test_before_sunrise_says_out_at_sunrise(self):
         w = wash(forecast(now="2026-09-30T06:15", rate=0.3))
@@ -474,13 +475,23 @@ class Output(unittest.TestCase):
         # The daily code says drizzle; the daylight hours were dry.
         self.assertEqual(out["today"]["text"], "Overcast, then sunny")
 
-    def test_timeline_marks_the_drying_window(self):
-        out = transform.run(forecast(rate=0.3))
-        win = [b["label"] for b in out["chart"]["bars"] if b["win"]]
-        self.assertEqual(win, ["10", "11", "12", "13", "14"])
-        self.assertEqual(out["chart"]["now"], "10")
-        past = [b["label"] for b in out["chart"]["bars"] if b["past"]]
-        self.assertEqual(past, ["07", "08", "09"])
+    def test_chart_is_the_next_24_hours(self):
+        bars = transform.run(forecast(rate=0.3, now="2026-09-30T10:20"))["chart"]["bars"]
+        self.assertEqual(len(bars), 24)
+        self.assertEqual((bars[0]["label"], bars[0]["now"], bars[-1]["label"]), ("10", True, "09"))
+        self.assertEqual([b["label"] for b in bars if b["win"]], ["10", "11", "12", "13", "14"])
+        # 19:00-06:00 is night (06:00-07:00 contains sunrise): no drying.
+        night = [b["label"] for b in bars if b["night"]]
+        self.assertEqual((night[0], night[-1], len(night)), ("19", "05", 11))
+        self.assertTrue(all(b["pct"] == 0 for b in bars if b["night"]))
+        # Labels every 3 hours for the small charts, plus "now".
+        self.assertEqual([b["label"] for b in bars if b["tick"]][:4], ["10", "12", "15", "18"])
+
+    def test_chart_shows_rain_at_night(self):
+        rain = {"2026-09-30T23:00": {"prob": 70}}
+        bars = transform.run(forecast(rate=0.3, overrides=rain))["chart"]["bars"]
+        late = next(b for b in bars if b["label"] == "23")
+        self.assertEqual((late["prob"], late["wet"], late["night"]), (70, True, True))
 
     def test_api_error_is_passed_through(self):
         out = transform.run({"error": True, "reason": "Latitude must be in range"})

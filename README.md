@@ -45,6 +45,11 @@ has to come in. Tomorrow's row uses the earliest start that dries a normal
 load (or a light one if that's all that's possible). If nothing would dry,
 the row says why ("Too late today", "Rain most of the day").
 
+The chart shows the **next 24 hours** from now: bar height is drying
+strength (none at night, which is shaded), rain-likely hours are hatched,
+and any hour with a 20%+ chance of rain shows the percentage, so it doubles
+as a "will I get wet going out?" guide.
+
 The verdict explains itself: how long drying will take, when the rain
 arrives or clears, or why today is a write-off. If rain is due overnight it
 says so, in case the washing would otherwise stay out.

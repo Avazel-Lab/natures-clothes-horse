@@ -38,34 +38,34 @@
   .nc-plan-note { grid-column: 2 / -1; }
 
   /* Drying timeline. Each bar sets --pct inline, from the data. */
-  .nc-chart { height: 150px; display: flex; gap: 4px; }
+  .nc-chart { height: 150px; display: flex; gap: 2px; }
   .nc-chart--small { height: 90px; }
   .nc-bar { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .nc-bar-track { position: relative; width: 100%; flex: 1 1 0; border-bottom: 2px solid #000; }
-  .nc-bar-fill { position: absolute; bottom: 0; left: 10%; width: 80%; height: var(--pct); background: #aaa; }
+  .nc-bar-track { position: relative; width: 100%; flex: 1 1 0; min-height: 0; border-bottom: 2px solid #000; }
+  .nc-bar-fill { max-height: 100%; }
+  .nc-bar-fill { position: absolute; bottom: 0; left: 8%; width: 84%; height: var(--pct); background: #aaa; }
   .nc-bar--win .nc-bar-fill { background: #000; }
   .nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #000 0 3px, #fff 3px 9px); border: 2px solid #000; min-height: 18px; }
-  .nc-bar-prob { position: absolute; left: 0; right: 0; bottom: max(var(--pct), 18px); text-align: center; padding-bottom: 2px; }
-  .nc-bar--past .nc-bar-fill { background: #ddd; }
-  .nc-bar--past.nc-bar--wet .nc-bar-fill { background: repeating-linear-gradient(45deg, #999 0 3px, #fff 3px 9px); border-color: #999; }
-  .nc-bar--past .nc-bar-prob { display: none; }
+  .nc-bar-prob { position: absolute; left: -4px; right: -4px; bottom: max(var(--pct), 18px); text-align: center; padding-bottom: 2px; white-space: nowrap; }
   .nc-bar--now .nc-bar-hour { background: #000; color: #fff; border-radius: 4px; padding: 0 5px; }
   .nc-key { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin: 0 3px 0 10px; }
   .nc-key--win { background: #000; }
   .nc-key--dry { background: #aaa; }
+  .nc-key--night { border: 1px solid #999; }
   .nc-key--wet { background: repeating-linear-gradient(45deg, #000 0 2px, #fff 2px 5px); border: 1px solid #000; }
 </style>
 
-{% comment %} Hourly drying bars. Params: chart, small (hides rain %). {% endcomment %}
+{% comment %} Next 24 hours: drying bars, rain chance, night shading.
+   Params: chart, small (labels every 3 hours, no rain %). {% endcomment %}
 {% template chart %}
 <div class="nc-chart{% if small %} nc-chart--small{% endif %}">
   {% for b in chart.bars %}
-    <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.past %} nc-bar--past{% endif %}{% if b.label == chart.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
-      <div class="nc-bar-track">
+    <div class="nc-bar{% if b.win %} nc-bar--win{% endif %}{% if b.wet %} nc-bar--wet{% endif %}{% if b.night %} nc-bar--night{% endif %}{% if b.now %} nc-bar--now{% endif %}" style="--pct: {{ b.pct }}%">
+      <div class="nc-bar-track{% if b.night %} bg--gray-75{% endif %}">
         {% unless small %}{% if b.prob >= 20 %}<span class="nc-bar-prob label label--small">{{ b.prob }}%</span>{% endif %}{% endunless %}
         <div class="nc-bar-fill"></div>
       </div>
-      <span class="nc-bar-hour label{% if small %} label--small{% endif %}">{{ b.label }}</span>
+      <span class="nc-bar-hour label label--small">{% if b.tick %}{{ b.label }}{% elsif small %}&nbsp;{% else %}{{ b.label }}{% endif %}</span>
     </div>
   {% endfor %}
 </div>

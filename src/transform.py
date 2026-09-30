@@ -810,22 +810,29 @@ def rain_tonight(hours, sunset, next_sunrise):
     return None
 
 
-def timeline(hours, day, suns, win, now):
-    """One bar per daylight hour of `day`, for the chart strip."""
-    rise, sset = suns[day]
-    first = rise.replace(minute=0)
+CHART_HOURS = 24
+
+
+def timeline(hours, now, win):
+    """One bar per hour for the next 24 hours, starting with the current one.
+
+    Bar height is drying strength (zero at night); rain chance rides on top.
+    """
+    first = now.replace(minute=0, second=0, microsecond=0)
     bars = []
     for h in hours:
-        if h["start"].date() != day or h["start"] < first or h["start"] >= sset:
+        if not first <= h["start"] < first + timedelta(hours=CHART_HOURS):
             continue
         in_win = bool(win) and win["start"] < h["start"] + timedelta(hours=1) and h["start"] < win["end"]
         bars.append({
             "label": h["start"].strftime("%H"),
-            "pct": min(100, rnd(h["rate"] / RATE_FULL * 100)),
+            "tick": h["start"].hour % 3 == 0 or h["start"] == first,
+            "pct": min(100, rnd(h["rate"] / RATE_FULL * 100)) if h["day"] else 0,
             "prob": rnd(h["prob"]),
             "wet": h["wet"],
             "win": in_win,
-            "past": h["start"] + timedelta(hours=1) <= now,
+            "night": not h["day"],
+            "now": h["start"] == first,
         })
     return bars
 
@@ -964,12 +971,7 @@ def run(input):
         rows[tomorrow] = day_plan("Tomorrow", hours, *suns[tomorrow])
     wash["plan"] = [rows[d] for d in sorted(rows)]
 
-    # Chart today's daylight; after sunset, chart tomorrow instead.
-    chart_day = now.date()
-    if now >= suns[chart_day][1] or wash["code"] == "tomorrow":
-        chart_day = chart_day + timedelta(days=1)
-    bars = timeline(hours, chart_day, suns, wash["window"], now)
-    now_label = now.strftime("%H") if chart_day == now.date() else None
+    bars = timeline(hours, now, wash["window"])
     wash["window"] = None  # datetimes aren't JSON; the bars carry it now
 
     text, icon = describe(cur["weather_code"], is_day)
@@ -989,9 +991,5 @@ def run(input):
         "tomorrow": days[1] if len(days) > 1 else None,
         "wash": wash,
         "garden": garden_label(garden),
-        "chart": {
-            "day": "Today" if chart_day == now.date() else "Tomorrow",
-            "bars": bars,
-            "now": now_label,
-        },
+        "chart": {"bars": bars},
     }

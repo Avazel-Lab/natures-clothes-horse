@@ -72,11 +72,12 @@
     <!-- Drying timeline -->
     <div class="nc-col">
       <div class="nc-row nc-row--spread">
-        <span class="label">{{ chart.day }}: drying strength by hour</span>
+        <span class="label">Next 24 hours: drying strength and chance of rain</span>
         <span class="description">
           <span class="nc-key nc-key--win"></span>washing out
-          <span class="nc-key nc-key--dry"></span>dry
+          <span class="nc-key nc-key--dry"></span>drying
           <span class="nc-key nc-key--wet"></span>rain likely
+          <span class="nc-key nc-key--night bg--gray-75"></span>night
         </span>
       </div>
       {% render "chart", chart: chart %}
