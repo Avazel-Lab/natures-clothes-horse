@@ -32,8 +32,8 @@ mm/h). This is the standard measure of how fast water evaporates, and it
 combines sunshine, temperature, humidity and wind. We calculate it ourselves
 from Open-Meteo's hourly sunshine, temperature, humidity and wind (it matches
 Open-Meteo's own ET0 to within 1%), so the garden can adjust the inputs. A load is dry once the ET0
-it's been exposed to adds up to a threshold: light 0.9, normal 1.3, heavy
-1.9 mm. The verdict is for a normal load; the screen also shows when light
+it's been exposed to adds up to a threshold: light 0.75, normal 1.1, heavy
+1.6 mm (see the calibration log below). The verdict is for a normal load; the screen also shows when light
 and heavy loads would be dry if hung out at the same time.
 
 - Rain is judged on its **chance** alone: that comes from many model runs,
@@ -136,7 +136,23 @@ Mowing block of `src/transform.py`. The forecast includes the previous day so
 yesterday's rain counts.
 
 All thresholds are in the tunables block at the top of `src/transform.py`.
-They're first guesses and need calibrating against real washing.
+They're first guesses, being calibrated against real washing.
+
+### Calibration log
+
+Real loads, replayed through the model with the forecast data for that day
+(no garden obstructions, Reading). "Model" is what the thresholds in force at
+the time predicted for a normal load.
+
+| Date | Hung out | Observed | Model (1.3 mm) | ET0 absorbed at observed finish |
+|---|---|---|---|---|
+| 2026-10-01 | 09:00 | dry by 13:45 (checked then, so possibly earlier) | 14:51 | 1.01 mm or less |
+| 2026-10-01 | 10:00 | not dry at 13:45, about an hour more (about 14:45) | 15:27 | about 1.15 mm |
+
+Both loads dried faster than predicted, the 10:00 one by about 40 minutes
+and the 09:00 one by over an hour. A normal load looks like about 1.1 mm,
+not 1.3, so all three thresholds were scaled by 0.85. Two readings is thin:
+keep logging, and note the load size and whether it was on a rack or the line.
 
 ## Setup
 
@@ -192,4 +208,4 @@ python3 -m unittest discover tests
 
 - **Phase 2: real-time observations.** Use a nearby station's live rain
   sensor so "it's raining now" overrides the forecast.
-- Calibrate the drying thresholds against real loads.
+- Keep calibrating the drying thresholds against real loads (see the log).

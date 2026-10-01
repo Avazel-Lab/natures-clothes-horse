@@ -37,8 +37,10 @@ from datetime import datetime, timedelta
 
 # ---- Tunables -------------------------------------------------------------
 
-# Cumulative ET0 (mm) a load needs to be dry.
-DRY_NEED = {"light": 0.9, "normal": 1.3, "heavy": 1.9}
+# Cumulative ET0 (mm) a load needs to be dry. Calibrated against real washing
+# (see "Calibration log" in the README): the first guess of 1.3 for a normal
+# load ran about an hour slow, so all three are scaled by 0.85.
+DRY_NEED = {"light": 0.75, "normal": 1.1, "heavy": 1.6}
 VERDICT_LOAD = "normal"
 
 # Rain is graded, not a yes/no cliff, and judged on its *chance* alone: that
