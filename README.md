@@ -148,8 +148,15 @@ the time predicted for a normal load.
 |---|---|---|---|---|
 | 2026-10-01 | 09:00 | dry by 13:45 (checked then, so possibly earlier) | 14:51 | 1.01 mm or less |
 | 2026-10-01 | 10:00 | not dry at 13:45, about an hour more (about 14:45) | 15:27 | about 1.15 mm |
+| 2026-10-02 | 11:00 | dry when checked at 16:30 (time unknown) | never (87% at sunset) | 1.11 mm or less |
 
-Both loads dried faster than predicted, the 10:00 one by about 40 minutes
+The 2026-10-02 load was predicted at 11:00 using the old thresholds (the
+forecast was 0.92 mm by 16:30), and the day turned out sunnier and windier
+than forecast: replayed with the observed weather it absorbed 1.11 mm by
+16:30, right at the new threshold. So that miss was mostly forecast error,
+not the model.
+
+The 2026-10-01 loads both dried faster than predicted, the 10:00 one by about 40 minutes
 and the 09:00 one by over an hour. A normal load looks like about 1.1 mm,
 not 1.3, so all three thresholds were scaled by 0.85. Two readings is thin:
 keep logging, and note the load size and whether it was on a rack or the line.
