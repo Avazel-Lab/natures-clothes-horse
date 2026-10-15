@@ -10,6 +10,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import transform  # noqa: E402
 
+# The tests' arithmetic is built on these thresholds. Pin them so recalibrating
+# the real DRY_NEED in transform.py doesn't mean rewriting every expected time.
+transform.DRY_NEED = {"light": 0.9, "normal": 1.3, "heavy": 1.9}
+
 FIXTURES = ROOT / "tests" / "fixtures"
 
 
