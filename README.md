@@ -150,36 +150,48 @@ They're first guesses, being calibrated against real washing.
 
 ### Calibration log
 
-Real loads, replayed through the model with the forecast data for that day
-(no garden obstructions, Reading). "Model" is what the thresholds in force at
-the time predicted for a normal load: 1.3 mm up to 2026-10-02, 1.1 mm after.
+Real loads, replayed through the model with Open-Meteo's archived data for
+that day, at the line's real location and with the plugin's garden settings
+(house NW, short fence section SW, line at 2.1 m). "Model then" is what the
+threshold in force when the load was logged predicts for a normal load (1.3
+mm up to 2026-10-02, 1.1 mm after); "Model now" uses the current 1.1 mm.
 
-| Date | Hung out | Observed | Model | ET0 absorbed at observed finish |
-|---|---|---|---|---|
-| 2026-10-01 | 09:00 | dry by 13:45 (checked then, so possibly earlier) | 14:51 | 1.01 mm or less |
-| 2026-10-01 | 10:00 | not dry at 13:45, about an hour more (about 14:45) | 15:27 | about 1.15 mm |
-| 2026-10-02 | 11:00 | dry when checked at 16:30 (time unknown) | never (87% at sunset) | 1.11 mm or less |
-| 2026-10-14 | 13:00 | nearly dry (maybe a little damp) when checked at 21:00 | never (71% at sunset, 18:13) | 0.79 mm by sunset, 0.87 mm by 21:00 |
+| Date | Hung out | Observed | Model then | Model now | ET0 absorbed at observed finish |
+|---|---|---|---|---|---|
+| 2026-10-01 | 09:00 | dry by 13:45 (checked then, so possibly earlier) | 15:09 | 14:14 | 0.99 mm or less |
+| 2026-10-01 | 10:00 | not dry at 13:45, about an hour more (about 14:45) | 15:59 | 14:50 | about 1.08 mm |
+| 2026-10-02 | 11:00 | dry when checked at 16:30 (time unknown) | 17:17 | 15:51 | 1.20 mm or less |
+| 2026-10-14 | 13:00 | nearly dry (maybe a little damp) when checked at 21:00 | never (66% at sunset, 18:13) | never (66% at sunset, 18:13) | 0.73 mm by sunset, 0.75 mm by 21:00 |
 
-The 2026-10-02 load was predicted at 11:00 using the old thresholds (the
-forecast was 0.92 mm by 16:30), and the day turned out sunnier and windier
-than forecast: replayed with the observed weather it absorbed 1.11 mm by
-16:30, right at the new threshold. So that miss was mostly forecast error,
-not the model.
+These were first replayed for Reading with no garden, and re-run on
+2026-10-16 for the real line. The 2026-10-01 loads moved by under 0.1 mm;
+the garden barely matters before mid-afternoon, when the house starts to
+shade the line.
 
-The 2026-10-14 load was replayed after the event, not forecast on the day.
-It's the first reading that runs past sunset: the model stops counting at
-sunset, but the evening was mild (15-17°C) and breezy (7-9 mph) with
-humidity rising only from 70% to 79%, and the washing kept drying. FAO-56
-ET0 gives only 0.09 mm for 18:13-21:00, because it models grass, which
-shuts down at night, while wet fabric keeps evaporating in wind. So either
-a normal load needs nearer 0.9 mm than 1.1, or evening drying is
-undercounted. It's one reading with a single check, so no change yet.
+The 2026-10-01 loads both dried faster than the 1.3 mm threshold predicted,
+the 10:00 one by over an hour and the 09:00 one by nearly an hour and a
+half. A normal load looks like about 1.0-1.1 mm, so all three thresholds were
+scaled by 0.85, and the 10:00 load now replays within 5 minutes.
 
-The 2026-10-01 loads both dried faster than predicted, the 10:00 one by about 40 minutes
-and the 09:00 one by over an hour. A normal load looks like about 1.1 mm,
-not 1.3, so all three thresholds were scaled by 0.85. Two readings is thin:
-keep logging, and note the load size and whether it was on a rack or the line.
+On 2026-10-02 the forecast at 11:00 said the load wouldn't dry (87% at
+sunset), but the day turned out sunnier and windier than forecast and the
+replay has it dry by 17:17 even at the old threshold. So that miss was
+mostly forecast error, not the model; it fits a normal load of 1.2 mm or
+less.
+
+The 2026-10-14 load is the first reading that runs past sunset. The model
+stops counting at sunset, by when the load had absorbed only two-thirds of
+its 1.1 mm (the house shades the line fully from about 17:00), but the
+evening was mild (15-17°C) and breezy (7-9 mph) with humidity rising only
+from 70% to 79%, and the washing kept drying. FAO-56 ET0 adds only 0.02 mm
+for 18:13-21:00, because it models grass, which shuts down at night, while
+wet fabric keeps evaporating in wind. The other three readings put a normal
+load at 1.0-1.2 mm, so evening drying being undercounted is likelier than
+the threshold being wrong. It's one reading with a single check, so no
+change yet: the next useful readings are afternoon loads checked at sunset
+and again an hour or two later.
+
+Keep logging, and note the load size and whether it was on a rack or the line.
 
 ## Setup
 
